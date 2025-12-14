@@ -6,7 +6,7 @@ This document describes how to create and export **sprites**, **animations**, an
 - Art direction: **Option B (Vector / Cartoon)** (simplest; placeholders are fine early on)
 
 ## Recommended Approach
-Use **tiles + props** for the environment (easy to iterate), and sprite sheets (or atlases) for characters.
+Use **tiles** for the environment (easy to iterate and perfect for collisions), and sprite sheets (or atlases) for characters.
 
 ## Option A — Pixel Art (fast iteration)
 ### Tools
@@ -56,6 +56,12 @@ Example (4 rows × 6 columns):
 - Export map as JSON
 - Mark collision tiles on a dedicated layer
 
+For this project direction, the tilemap should include:
+- Ground tiles (walkable)
+- Tree tiles (blocked, **choppable**)
+- Rock tiles (blocked)
+- Water tiles (river, blocked)
+
 ### Single Painted Background (fast MVP)
 - Paint/export one large PNG (e.g., 1920×1080 or larger)
 - Add invisible collision rectangles in code
@@ -63,10 +69,9 @@ Example (4 rows × 6 columns):
 
 ## Campsite Objects (Props)
 Create sprites for:
-- Tent: `unbuilt → halfBuilt → built`
-- Campfire ring: `unlit → lit`
-- Flagpole: `down → raised`
-- Woodpile, water source, supply crate
+- Hut: `unbuilt → halfBuilt → built`
+- Tree chop feedback (stump tile, fallen tree variant) (optional)
+- River banks / bridge (optional MVP+)
 
 ## Animation Strategy in Phaser
 - Define animations once (per Scene or globally)

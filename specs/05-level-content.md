@@ -1,34 +1,33 @@
 # 05 — Level Content (MVP)
 
 ## Level: Forest Clearing
-A single top‑down map with a central clearing for the campsite.
+A single top‑down map with a central clearing for the campsite, surrounded by dense forest and featuring a **river**.
 
 ## Pacing
 - Relaxed sandbox (no time limit / no fail state for MVP)
 
 ## Key Areas
 - Campsite build zone (flat clearing)
-- Resource nodes around the perimeter
-- Obstacles (trees/rocks) forming natural boundaries
+- Dense forest (tile obstacles)
+- A river (water tiles, impassable)
+- One or more “blocked routes” that require chopping trees to open paths
 
 ## Required Objects
-### Resource Nodes
-- Woodpile
-- Water source
-- Supply crate
+### Resource Sources
+- Trees (tile obstacles) that can be chopped to yield wood
 
 ### Build Sites
-- Tent spot (inside clearing)
-- Campfire ring spot (must be in a safe zone)
-- Flagpole spot (near clearing edge)
+- Hut build sites (inside clearing)
 
 ## Collisions
-- Trees/rocks are non-walkable
+- Trees/rocks are non-walkable tiles
+- Water (river) is non-walkable tiles
 - Build sites are walkable but have interaction zones
 
 ## Map Production Notes
 If using Tiled:
 - Base layer: ground
-- Detail layer: props
-- Collision layer: collidable tiles
-- Object layer: spawn points, interaction zones
+- Obstacle layer: trees/rocks (collidable; trees also choppable)
+- Water layer: river (collidable)
+- Object layer: spawn points (leader + scouts), hut sites, goal markers
+

@@ -13,4 +13,4 @@ This folder contains the game specification split into short, digestible documen
 - [08-deployment-github-pages.md](08-deployment-github-pages.md) — static deployment on GitHub Pages
 
 ## MVP Summary
-A top-down Phaser 3 game where the player controls a Scout Leader who directs a small group of scouts to gather supplies and set up a campsite (tent, campfire, flag).
+A top-down Phaser 3 game where the player controls a Scout Leader who directs a small group of scouts to **chop trees for wood**, **clear paths**, and **build huts** in a forest clearing with a **river**. The environment uses a **tilemap** for obstacles and collision.

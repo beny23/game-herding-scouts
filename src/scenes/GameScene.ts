@@ -4,7 +4,7 @@ import { Scout } from '../game/Scout';
 import type { BuildTask, TaskId } from '../game/types';
 import { createHud, updateChecklistText, updateHudPanels, updatePromptText, type Hud } from '../game/ui/hud';
 import { handleInteract } from '../game/systems/interact';
-import { findNearbyScout, findNearestInteractableInRange } from '../game/systems/queries';
+// (No query helpers needed here; we do cone-based selection locally.)
 import { updateScoutAI } from '../game/systems/scoutAi';
 import { createProceduralTextures } from '../game/visuals/textures';
 import { enableBobbing, updateBobbing } from '../game/visuals/bobbing';
@@ -15,7 +15,7 @@ import { createWorldLayout } from '../game/world/worldLayout';
 import { spawnScouts } from '../game/world/spawnScouts';
 import { updateLeaderMovement } from '../game/systems/leaderMovement';
 import { createControls, type GameKeys } from '../game/input/controls';
-import { createGroundLayer } from '../game/world/groundLayer';
+import { createTilemapWorld, type TilemapWorld } from '../game/world/tilemapWorld';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -28,8 +28,14 @@ export class GameScene extends Phaser.Scene {
   private leader!: Phaser.Physics.Arcade.Sprite;
   private scouts: Scout[] = [];
 
+  private leaderFacing = new Phaser.Math.Vector2(1, 0);
+
   private interactables!: Phaser.GameObjects.Group;
-  private obstacles!: Phaser.Physics.Arcade.StaticGroup;
+
+  private tileWorld!: TilemapWorld;
+  private woodStockpile = 0;
+  private waterStockpile = 0;
+  private woodPile = { x: 0, y: 0 };
 
   private tasks: Record<TaskId, BuildTask> | null = null;
 
@@ -46,17 +52,12 @@ export class GameScene extends Phaser.Scene {
     this.cursors = controls.cursors;
     this.keys = controls.keys;
 
-    const world = {
-      width: 1600,
-      height: 1000,
-    };
+    this.tileWorld = createTilemapWorld({ scene: this });
 
+    const world = { width: this.tileWorld.width, height: this.tileWorld.height };
     this.cameras.main.setBounds(0, 0, world.width, world.height);
     this.physics.world.setBounds(0, 0, world.width, world.height);
 
-    createGroundLayer({ scene: this, world, spawn: { x: 260, y: 260 }, clearing: { x: 880, y: 560, radius: 220 } });
-
-    this.obstacles = this.physics.add.staticGroup();
     this.interactables = this.add.group();
 
     this.workEmitter = this.add.particles(0, 0, 'spark', {
@@ -73,10 +74,11 @@ export class GameScene extends Phaser.Scene {
     this.buildProgressGfx = this.add.graphics();
     this.buildProgressGfx.setDepth(60);
 
-    const worldResult = createWorldLayout({ scene: this, world, obstacles: this.obstacles, interactables: this.interactables });
+    const worldResult = createWorldLayout({ scene: this, world, interactables: this.interactables, tileWorld: this.tileWorld });
     this.tasks = worldResult.tasks;
+    this.woodPile = worldResult.woodPile;
 
-    this.leader = this.physics.add.sprite(260, 260, 'leader');
+    this.leader = this.physics.add.sprite(this.tileWorld.leaderSpawn.x, this.tileWorld.leaderSpawn.y, 'leader');
     this.leader.setCollideWorldBounds(true);
     this.leader.setDamping(true);
     this.leader.setDrag(900, 900);
@@ -85,12 +87,12 @@ export class GameScene extends Phaser.Scene {
     attachShadow(this, this.leader, 12);
     enableBobbing(this.leader);
 
-    this.physics.add.collider(this.leader, this.obstacles);
+    this.physics.add.collider(this.leader, this.tileWorld.layer);
 
-    this.scouts = spawnScouts({ scene: this });
+    this.scouts = spawnScouts({ scene: this, positions: this.tileWorld.scoutSpawns });
 
     for (const scout of this.scouts) {
-      this.physics.add.collider(scout.sprite, this.obstacles);
+      this.physics.add.collider(scout.sprite, this.tileWorld.layer);
       this.physics.add.collider(scout.sprite, this.leader);
 
       attachShadow(this, scout.sprite, 11);
@@ -109,23 +111,63 @@ export class GameScene extends Phaser.Scene {
     this.highlightRing = createHighlightRing(this);
 
     this.hud = createHud(this);
-    updateChecklistText(this.hud, this.tasks);
+    updateChecklistText(this.hud, this.tasks, this.woodStockpile, this.waterStockpile);
     updatePromptText(this.hud, '');
     updateHudPanels(this.hud);
 
+    // Whistle: cancel current jobs and regroup all scouts.
+    this.keys.Q.on('down', () => {
+      for (const scout of this.scouts) {
+        // Refund reserved wood deliveries if a scout was assigned to deliver.
+        if (scout.state.kind === 'CarryWoodToTask') {
+          this.woodStockpile += Math.max(0, scout.state.amount);
+        }
+        // If a scout had harvested wood but not deposited yet, just credit it back to the pile.
+        if (scout.state.kind === 'CarryWoodToPile') {
+          this.woodStockpile += Math.max(0, scout.state.amount);
+        }
+
+        scout.state = { kind: 'Regroup' };
+        scout.nav = null;
+      }
+    });
+
     this.keys.E.on('down', () => {
+      const forced = this.getFacingTarget();
+      if (!forced) return;
       handleInteract({
         leader: this.leader,
         scouts: this.scouts,
         interactables: this.interactables,
-        scoutToggleRange: 48,
+        tileWorld: this.tileWorld,
+        tasks: this.tasks,
+        woodPile: this.woodPile,
+        reserveResource: (resource, want) => {
+          const amount = Math.max(0, want);
+          if (resource === 'wood') {
+            const taken = Math.min(this.woodStockpile, amount);
+            this.woodStockpile -= taken;
+            return taken;
+          }
+          const taken = Math.min(this.waterStockpile, amount);
+          this.waterStockpile -= taken;
+          return taken;
+        },
         interactableRange: 72,
+        treeRange: 120,
+        waterRange: 150,
+        forced,
       });
     });
   }
 
   update(time: number, delta: number) {
     updateLeaderMovement({ leader: this.leader, cursors: this.cursors, keys: this.keys, speed: 260 });
+
+    const body = this.leader.body as Phaser.Physics.Arcade.Body;
+    if (body && (Math.abs(body.velocity.x) > 1 || Math.abs(body.velocity.y) > 1)) {
+      this.leaderFacing.set(body.velocity.x, body.velocity.y).normalize();
+    }
 
     updateBobbing(this.leader, time);
     updateShadow(this.leader, 12);
@@ -136,6 +178,34 @@ export class GameScene extends Phaser.Scene {
         scout,
         leader: this.leader,
         tasks: this.tasks,
+        tileWorld: this.tileWorld,
+        woodPile: this.woodPile,
+        resources: {
+          wood: {
+            get: () => this.woodStockpile,
+            add: (amount) => {
+              this.woodStockpile = Math.max(0, this.woodStockpile + amount);
+            },
+            spend: (amount) => {
+              const want = Math.max(0, amount);
+              const spent = Math.min(this.woodStockpile, want);
+              this.woodStockpile -= spent;
+              return spent;
+            },
+          },
+          water: {
+            get: () => this.waterStockpile,
+            add: (amount) => {
+              this.waterStockpile = Math.max(0, this.waterStockpile + amount);
+            },
+            spend: (amount) => {
+              const want = Math.max(0, amount);
+              const spent = Math.min(this.waterStockpile, want);
+              this.waterStockpile -= spent;
+              return spent;
+            },
+          },
+        },
         time,
         delta,
         workEmitter: this.workEmitter,
@@ -145,31 +215,112 @@ export class GameScene extends Phaser.Scene {
       updateDepth(scout.sprite);
     }
 
-    updateChecklistText(this.hud, this.tasks);
+    updateChecklistText(this.hud, this.tasks, this.woodStockpile, this.waterStockpile);
     this.updatePromptAndHighlight();
     updateHudPanels(this.hud);
     updateBuildProgressRings(this.buildProgressGfx, this.tasks);
   }
 
-  private updatePromptAndHighlight() {
-    const nearbyScout = findNearbyScout(this.leader, this.scouts, 48);
-    if (nearbyScout) {
-      setHighlightTarget(this.highlightRing, nearbyScout.sprite);
-      const next = nearbyScout.state.kind === 'Follow' ? 'Set scout to Idle' : 'Set scout to Follow';
-      updatePromptText(this.hud, `E: ${next}`);
-      return;
+  private inFrontAndClose(targetX: number, targetY: number, maxDist: number, minDot: number) {
+    const dx = targetX - this.leader.x;
+    const dy = targetY - this.leader.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > maxDist) return false;
+    if (dist < 1e-6) return true;
+    const inv = 1 / dist;
+    const dot = (dx * inv) * this.leaderFacing.x + (dy * inv) * this.leaderFacing.y;
+    return dot >= minDot;
+  }
+
+  private findBestInteractableInCone(maxDist: number, minDot: number): Phaser.Physics.Arcade.Sprite | null {
+    const sprites = this.interactables.getChildren() as Phaser.Physics.Arcade.Sprite[];
+    let best: Phaser.Physics.Arcade.Sprite | null = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+
+    for (const s of sprites) {
+      const dx = s.x - this.leader.x;
+      const dy = s.y - this.leader.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > maxDist) continue;
+      const inv = dist < 1e-6 ? 0 : 1 / dist;
+      const dot = dist < 1e-6 ? 1 : (dx * inv) * this.leaderFacing.x + (dy * inv) * this.leaderFacing.y;
+      if (dot < minDot) continue;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = s;
+      }
     }
 
-    const interactable = findNearestInteractableInRange(this.leader, this.interactables, 72);
-    if (interactable) {
-      setHighlightTarget(this.highlightRing, interactable);
-      const label = String(interactable.data?.get('label') ?? 'Target');
+    return best;
+  }
+
+
+  private getFacingTarget():
+    | { kind: 'interactable'; sprite: Phaser.Physics.Arcade.Sprite }
+    | { kind: 'tree'; target: any }
+    | { kind: 'water'; target: any }
+    | null {
+    const maxDist = 52;
+    const minDot = 0.65;
+
+    const interactable = this.findBestInteractableInCone(maxDist, minDot);
+    if (interactable) return { kind: 'interactable', sprite: interactable };
+
+    const treeTarget = this.tileWorld.findNearestTreeTargetInCone(
+      this.leader.x,
+      this.leader.y,
+      maxDist,
+      this.leaderFacing,
+      minDot,
+    );
+    if (treeTarget) return { kind: 'tree', target: treeTarget };
+
+    const waterTarget = this.tileWorld.findNearestWaterTargetInCone(
+      this.leader.x,
+      this.leader.y,
+      maxDist,
+      this.leaderFacing,
+      minDot,
+    );
+    if (waterTarget) return { kind: 'water', target: waterTarget };
+
+    return null;
+  }
+
+  private updatePromptAndHighlight() {
+    const facingTarget = this.getFacingTarget();
+    if (facingTarget) {
       const idleCount = this.scouts.filter((s) => s.isIdle()).length;
       if (idleCount === 0) {
+        // Still show the ring, but make it clear no one is free.
+        if (facingTarget.kind === 'interactable') setHighlightTarget(this.highlightRing, facingTarget.sprite);
+        else setHighlightTarget(this.highlightRing, { x: facingTarget.target.sourceX, y: facingTarget.target.sourceY });
         updatePromptText(this.hud, 'E: No idle scouts available');
-      } else {
-        updatePromptText(this.hud, `E: Assign nearest idle scout → ${label}`);
+        return;
       }
+
+      if (facingTarget.kind === 'interactable') {
+        setHighlightTarget(this.highlightRing, facingTarget.sprite);
+        const label = String(facingTarget.sprite.data?.get('label') ?? 'Target');
+        const task = this.tasks ? Object.values(this.tasks).find((t) => t.sprite === facingTarget.sprite) : null;
+        if (task?.resource === 'wood') {
+          if (this.woodStockpile <= 0) updatePromptText(this.hud, `E: Need wood at the pile → ${label}`);
+          else updatePromptText(this.hud, `E: Deliver wood to ${label}`);
+        } else if (task?.resource === 'water') {
+          updatePromptText(this.hud, `E: Send scout to fetch river water → ${label}`);
+        } else {
+          updatePromptText(this.hud, `E: Assign nearest idle scout → ${label}`);
+        }
+        return;
+      }
+
+      setHighlightTarget(this.highlightRing, { x: facingTarget.target.sourceX, y: facingTarget.target.sourceY });
+      updatePromptText(
+        this.hud,
+        facingTarget.kind === 'tree'
+          ? 'E: Assign nearest idle scout → Chop tree'
+          : 'E: Assign nearest idle scout → Fetch water',
+      );
       return;
     }
 

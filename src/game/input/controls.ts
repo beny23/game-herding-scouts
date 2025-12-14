@@ -6,6 +6,7 @@ export type GameKeys = {
   S: Phaser.Input.Keyboard.Key;
   D: Phaser.Input.Keyboard.Key;
   E: Phaser.Input.Keyboard.Key;
+  Q: Phaser.Input.Keyboard.Key;
 };
 
 export function createControls(scene: Phaser.Scene) {
@@ -21,6 +22,7 @@ export function createControls(scene: Phaser.Scene) {
     S: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
     D: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
     E: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
+    Q: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q),
   };
 
   return { cursors, keys };

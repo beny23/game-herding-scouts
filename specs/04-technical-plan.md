@@ -12,26 +12,46 @@
 ### Entity Model
 - Leader (player-controlled)
 - Scout NPCs (state machine)
-- Resource nodes (produce items)
-- Build sites (consume items; progress toward completion)
+- Build sites (consume wood; progress toward completion)
+- Tilemap world (ground, obstacles, water)
 
 ### Interaction Model (MVP)
 - Leader-only control.
-- `E` interaction on a resource node/build site assigns the nearest idle scout to that target.
+- `E` interaction on a **tree tile** or **build site** assigns the nearest idle scout to that target.
+- Interaction targeting is based on the leader position + facing/closest tile under cursor/nearby (implementation choice).
 
 ### Data Definitions (MVP)
-- `ItemType`: `wood | water | tentParts | rope | stakes`
-- `TaskType`: `tent | campfire | flag`
-- `TaskDefinition`: required items + target build site + completion state
+- `ResourceType`: `wood`
+- `TaskType`: `hutA | hutB | hutC` (or a list of hut tasks)
+- `TaskDefinition`: woodCost + target build site + completion state
+- `TileKinds` (via tile properties in Tiled):
+  - `ground` (walkable)
+  - `tree` (blocked, **choppable**, yields wood)
+  - `rock` (blocked, not choppable)
+  - `water` (blocked)
 
 ### Scout AI (MVP)
 - Finite state machine with a small set of states:
-  - `Idle`, `Follow`, `GoToTarget`, `CarryItem`, `Work`
+  - `Idle`, `Follow`, `GoToTarget`, `ChopTree`, `BuildHut`
 
 ### Movement & Collisions
 - Arcade Physics
-- Map collisions via tilemap collision layer (preferred)
-- If single background: manual static bodies/rectangles
+- Map collisions via **tilemap collision layer (required for this direction)**
+- Use a tilemap layer with collision enabled via tile properties (e.g., `collides: true`) or by index.
+
+#### Destructible Tiles (Tree Chopping)
+- Trees are obstacle tiles with properties like:
+  - `kind: tree`
+  - `collides: true`
+  - `choppable: true`
+  - `woodYield: number` (optional; can be constant for MVP)
+- When a scout completes a chop action:
+  - Replace the tree tile with a ground tile (or remove it)
+  - Ensure collision is removed for that tile
+  - Increment the global wood stockpile
+
+#### River
+- Water tiles are collidable and non-destructible for MVP.
 
 ## Save/Load
 - None for MVP

@@ -248,6 +248,131 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.fillCircle(6.5, 6.5, 1);
   });
 
+  makeTexture('tileset32', 32 * 7, 32, (gfx) => {
+    // 7 tiles laid out horizontally, 32x32 each.
+    // Index mapping (keep in sync with `tilemapWorld.ts`):
+    // 0 forest_a, 1 forest_b, 2 clearing, 3 path, 4 water, 5 tree, 6 rock
+
+    const drawForest = (ox: number, base: number, foliageA: number, foliageB: number) => {
+      gfx.fillStyle(base, 1);
+      gfx.fillRect(ox, 0, 32, 32);
+
+      gfx.fillStyle(0x050e09, 0.55);
+      for (let i = 0; i < 5; i++) {
+        gfx.fillCircle(ox + Phaser.Math.Between(0, 31), Phaser.Math.Between(0, 31), Phaser.Math.Between(4, 7));
+      }
+
+      gfx.fillStyle(foliageA, 0.95);
+      for (let i = 0; i < 60; i++) {
+        gfx.fillCircle(ox + Phaser.Math.Between(0, 31), Phaser.Math.Between(0, 31), Phaser.Math.Between(1, 2));
+      }
+      gfx.fillStyle(foliageB, 0.9);
+      for (let i = 0; i < 40; i++) {
+        gfx.fillCircle(ox + Phaser.Math.Between(0, 31), Phaser.Math.Between(0, 31), Phaser.Math.Between(1, 2));
+      }
+
+      // tiny accents
+      gfx.fillStyle(0xfbbf24, 0.18);
+      for (let i = 0; i < 5; i++) {
+        gfx.fillCircle(ox + Phaser.Math.Between(2, 29), Phaser.Math.Between(2, 29), 1);
+      }
+
+      gfx.lineStyle(1, 0x0b1220, 0.35);
+      gfx.strokeRect(ox + 0.5, 0.5, 31, 31);
+    };
+
+    const drawClearing = (ox: number) => {
+      gfx.fillStyle(0x2a2f1d, 1);
+      gfx.fillRect(ox, 0, 32, 32);
+      gfx.lineStyle(2, 0xa3a36a, 0.25);
+      for (let i = 0; i < 7; i++) {
+        const x1 = ox + Phaser.Math.Between(0, 31);
+        const y1 = Phaser.Math.Between(0, 31);
+        gfx.beginPath();
+        gfx.moveTo(x1, y1);
+        gfx.lineTo(x1 + Phaser.Math.Between(4, 10), y1 + Phaser.Math.Between(-1, 5));
+        gfx.strokePath();
+      }
+      gfx.lineStyle(1, 0x0b1220, 0.25);
+      gfx.strokeRect(ox + 0.5, 0.5, 31, 31);
+    };
+
+    const drawPath = (ox: number) => {
+      gfx.fillStyle(0x0a1710, 1);
+      gfx.fillRect(ox, 0, 32, 32);
+      gfx.fillStyle(0x3b2a1a, 1);
+      gfx.fillRoundedRect(ox + 0, 7, 32, 18, 10);
+
+      gfx.fillStyle(0xe5e7eb, 0.35);
+      for (let i = 0; i < 7; i++) {
+        gfx.fillCircle(ox + Phaser.Math.Between(4, 28), Phaser.Math.Between(10, 22), 1);
+      }
+      gfx.lineStyle(1, 0x0b1220, 0.25);
+      gfx.strokeRect(ox + 0.5, 0.5, 31, 31);
+    };
+
+    const drawWater = (ox: number) => {
+      gfx.fillStyle(0x0b2942, 1);
+      gfx.fillRect(ox, 0, 32, 32);
+      gfx.fillStyle(0x1e3a8a, 0.25);
+      for (let i = 0; i < 10; i++) {
+        gfx.fillEllipse(ox + Phaser.Math.Between(0, 31), Phaser.Math.Between(0, 31), Phaser.Math.Between(10, 18), Phaser.Math.Between(4, 8));
+      }
+      gfx.lineStyle(2, 0x38bdf8, 0.22);
+      for (let y = 6; y <= 28; y += 8) {
+        gfx.beginPath();
+        gfx.moveTo(ox + 2, y);
+        gfx.lineTo(ox + 30, y + Phaser.Math.Between(-2, 2));
+        gfx.strokePath();
+      }
+      gfx.lineStyle(1, 0x0b1220, 0.25);
+      gfx.strokeRect(ox + 0.5, 0.5, 31, 31);
+    };
+
+    const drawTree = (ox: number) => {
+      // Canopy
+      gfx.fillStyle(0x14532d, 1);
+      gfx.fillCircle(ox + 16, 16, 12);
+      gfx.fillStyle(0x166534, 1);
+      gfx.fillCircle(ox + 14, 14, 10);
+      gfx.fillStyle(0x15803d, 1);
+      gfx.fillCircle(ox + 18, 18, 8);
+
+      // trunk
+      gfx.fillStyle(0x5b3416, 0.9);
+      gfx.fillCircle(ox + 16, 18, 3);
+      gfx.lineStyle(1, stroke, 0.6);
+      gfx.strokeCircle(ox + 16, 18, 3);
+
+      gfx.lineStyle(2, stroke, 0.6);
+      gfx.strokeCircle(ox + 16, 16, 12);
+      gfx.lineStyle(1, 0x0b1220, 0.25);
+      gfx.strokeRect(ox + 0.5, 0.5, 31, 31);
+    };
+
+    const drawRock = (ox: number) => {
+      gfx.fillStyle(0x23304d, 1);
+      gfx.fillRoundedRect(ox + 6, 8, 20, 18, 8);
+      gfx.fillStyle(0x30446c, 0.85);
+      gfx.fillRoundedRect(ox + 8, 10, 16, 7, 6);
+      gfx.lineStyle(2, stroke, 0.7);
+      gfx.strokeRoundedRect(ox + 6, 8, 20, 18, 8);
+
+      gfx.fillStyle(0x34d399, 0.15);
+      gfx.fillCircle(ox + 10, 18, 4);
+      gfx.lineStyle(1, 0x0b1220, 0.25);
+      gfx.strokeRect(ox + 0.5, 0.5, 31, 31);
+    };
+
+    drawForest(0, 0x09140e, 0x0f2a1a, 0x163d26);
+    drawForest(32, 0x0b1911, 0x12321f, 0x1b4a2e);
+    drawClearing(64);
+    drawPath(96);
+    drawWater(128);
+    drawTree(160);
+    drawRock(192);
+  });
+
   makeTexture('label_bg', 128, 32, (gfx) => {
     // Simple scalable HUD pill used behind world labels.
     gfx.fillStyle(0x0b1220, 0.55);
@@ -469,6 +594,53 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.fillTriangle(14, 11, 24, 14, 14, 17);
     gfx.lineStyle(2, stroke, 0.75);
     gfx.strokeTriangle(14, 11, 24, 14, 14, 17);
+  });
+
+  makeTexture('wood_pile', 34, 34, (gfx) => {
+    // Small pile of logs.
+    gfx.fillStyle(0x0b1220, 0.25);
+    gfx.fillEllipse(17, 26, 24, 8);
+
+    const drawLog = (x: number, y: number, w: number, h: number, tint: number) => {
+      gfx.fillStyle(tint, 1);
+      gfx.fillRoundedRect(x, y, w, h, 4);
+      gfx.fillStyle(0xfbbf24, 0.25);
+      gfx.fillRoundedRect(x + 2, y + 2, w - 4, Math.max(2, Math.floor(h * 0.35)), 3);
+      gfx.lineStyle(2, stroke, 0.75);
+      gfx.strokeRoundedRect(x + 0.5, y + 0.5, w - 1, h - 1, 4);
+    };
+
+    drawLog(6, 18, 22, 8, 0x7c2d12);
+    drawLog(8, 10, 20, 8, 0x92400e);
+    drawLog(10, 20, 18, 7, 0x9a3412);
+
+    gfx.fillStyle(0xe5e7eb, 0.28);
+    gfx.fillCircle(12, 12, 1);
+    gfx.fillCircle(24, 15, 1);
+  });
+
+  makeTexture('water_tank', 34, 34, (gfx) => {
+    // Simple tank + water window.
+    gfx.fillStyle(0x0b1220, 0.25);
+    gfx.fillEllipse(17, 27, 24, 8);
+
+    gfx.fillStyle(0x1f2937, 1);
+    gfx.fillRoundedRect(9, 9, 16, 18, 6);
+    gfx.fillStyle(0x334155, 0.95);
+    gfx.fillRoundedRect(11, 11, 12, 14, 5);
+
+    // Water level window
+    gfx.fillStyle(0x0b2942, 1);
+    gfx.fillRoundedRect(13, 16, 8, 8, 3);
+    gfx.fillStyle(0x38bdf8, 0.25);
+    gfx.fillRoundedRect(13, 16, 8, 3, 3);
+
+    // Cap
+    gfx.fillStyle(0x111827, 1);
+    gfx.fillRoundedRect(13, 7, 8, 5, 2);
+
+    gfx.lineStyle(2, stroke, 0.8);
+    gfx.strokeRoundedRect(9, 9, 16, 18, 6);
   });
 
   makeTexture('obstacle', 72, 72, (gfx) => {
