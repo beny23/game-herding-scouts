@@ -8,6 +8,7 @@ type WorldSize = { width: number; height: number };
 type CreateWorldResult = {
   tasks: Record<TaskId, BuildTask>;
   woodPile: { x: number; y: number };
+  woodPileSprite: Phaser.GameObjects.Image;
 };
 
 export function createWorldLayout(params: {
@@ -27,7 +28,7 @@ export function createWorldLayout(params: {
   const woodPilePos = snap(cx - 60, cy + 50);
   const woodPileX = woodPilePos.x;
   const woodPileY = woodPilePos.y;
-  scene.add.image(woodPileX, woodPileY, 'wood_pile').setDepth(woodPileY);
+  const woodPileSprite = scene.add.image(woodPileX, woodPileY, 'wood_pile_s0').setDepth(woodPileY);
   attachStaticShadow(scene, woodPileX, woodPileY + 6, 14, 0.45);
   scene.add
     .text(woodPileX, woodPileY + 26, 'Wood Pile', {
@@ -48,7 +49,7 @@ export function createWorldLayout(params: {
     scene,
     x: hutAPos.x,
     y: hutAPos.y,
-    textureKey: 'build_tent',
+    textureKey: 'build_tent_s0',
     kind: 'hut',
     label: 'Hut A',
     interactables,
@@ -57,7 +58,7 @@ export function createWorldLayout(params: {
     scene,
     x: hutBPos.x,
     y: hutBPos.y,
-    textureKey: 'build_flag',
+    textureKey: 'build_flag_s0',
     kind: 'hut',
     label: 'Hut B',
     interactables,
@@ -66,7 +67,7 @@ export function createWorldLayout(params: {
     scene,
     x: tankPos.x,
     y: tankPos.y,
-    textureKey: 'water_tank',
+    textureKey: 'water_tank_s0',
     kind: 'hut',
     label: 'Water Tank',
     interactables,
@@ -102,6 +103,7 @@ export function createWorldLayout(params: {
       waterTank: makeTask('waterTank', 'Fill Water Tank', waterTank, 'water', 12),
     },
     woodPile: { x: woodPileX, y: woodPileY },
+    woodPileSprite,
   };
 }
 

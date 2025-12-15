@@ -222,30 +222,48 @@ export function createProceduralTextures(scene: Phaser.Scene) {
 
   makeTexture('shadow', 48, 24, (gfx) => {
     // Fake soft shadow via layered ellipses.
-    for (let i = 0; i < 6; i++) {
-      const a = 0.18 - i * 0.025;
+    for (let i = 0; i < 7; i++) {
+      const a = 0.2 - i * 0.025;
       gfx.fillStyle(0x000000, Math.max(0, a));
-      gfx.fillEllipse(24, 12, 34 - i * 4, 12 - i * 1.2);
+      gfx.fillEllipse(24, 12, 36 - i * 4.2, 12 - i * 1.15);
     }
+    // Slight offset dark core to help ground sprites.
+    gfx.fillStyle(0x000000, 0.08);
+    gfx.fillEllipse(25, 12.5, 22, 7);
   });
 
   makeTexture('ring', 64, 64, (gfx) => {
     // Double-ring with subtle inner glow.
-    gfx.lineStyle(4, 0xffffff, 0.92);
+    gfx.fillStyle(0x38bdf8, 0.06);
+    gfx.fillCircle(32, 32, 28);
+
+    gfx.lineStyle(4, 0xffffff, 0.9);
     gfx.strokeCircle(32, 32, 21);
-    gfx.lineStyle(3, 0x38bdf8, 0.9);
+
+    gfx.lineStyle(3, 0x38bdf8, 0.85);
     gfx.strokeCircle(32, 32, 26);
-    gfx.lineStyle(1, 0x93c5fd, 0.55);
+
+    gfx.lineStyle(1, 0x93c5fd, 0.5);
     gfx.strokeCircle(32, 32, 17);
+
+    // Soft glow accent
+    gfx.lineStyle(2, 0x38bdf8, 0.16);
+    gfx.strokeCircle(32, 32, 29);
   });
 
   makeTexture('spark', 16, 16, (gfx) => {
-    gfx.fillStyle(0xffffff, 1);
-    gfx.fillCircle(8, 8, 3);
-    gfx.fillStyle(0x38bdf8, 0.9);
-    gfx.fillCircle(8, 8, 2);
-    gfx.fillStyle(0xffffff, 0.6);
-    gfx.fillCircle(6.5, 6.5, 1);
+    // Tiny starburst particle (reads better than a dot).
+    gfx.fillStyle(0xffffff, 0.95);
+    gfx.fillCircle(8, 8, 1.8);
+
+    gfx.fillStyle(0x38bdf8, 0.95);
+    gfx.fillTriangle(8, 1.5, 6.7, 8, 9.3, 8);
+    gfx.fillTriangle(8, 14.5, 6.7, 8, 9.3, 8);
+    gfx.fillTriangle(1.5, 8, 8, 6.7, 8, 9.3);
+    gfx.fillTriangle(14.5, 8, 8, 6.7, 8, 9.3);
+
+    gfx.fillStyle(0xffffff, 0.7);
+    gfx.fillCircle(7.2, 7.1, 0.9);
   });
 
   makeTexture('tileset32', 32 * 7, 32, (gfx) => {
@@ -253,115 +271,195 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     // Index mapping (keep in sync with `tilemapWorld.ts`):
     // 0 forest_a, 1 forest_b, 2 clearing, 3 path, 4 water, 5 tree, 6 rock
 
+    const applyTileLighting = (ox: number) => {
+      // Subtle, consistent top-left light and bottom-right shadow.
+      gfx.fillStyle(0xffffff, 0.06);
+      gfx.fillRect(ox + 1, 1, 30, 10);
+      gfx.fillStyle(0xffffff, 0.03);
+      gfx.fillRect(ox + 1, 1, 10, 30);
+
+      gfx.fillStyle(0x000000, 0.09);
+      gfx.fillRect(ox + 1, 22, 30, 9);
+      gfx.fillStyle(0x000000, 0.06);
+      gfx.fillRect(ox + 22, 1, 9, 30);
+
+      // Slight edge separation without a boxed outline.
+      gfx.fillStyle(0x000000, 0.08);
+      gfx.fillRect(ox + 31, 0, 1, 32);
+      gfx.fillRect(ox, 31, 32, 1);
+    };
+
     const drawForest = (ox: number, base: number, foliageA: number, foliageB: number) => {
       gfx.fillStyle(base, 1);
       gfx.fillRect(ox, 0, 32, 32);
 
-      gfx.fillStyle(0x050e09, 0.55);
-      for (let i = 0; i < 5; i++) {
-        gfx.fillCircle(ox + Phaser.Math.Between(0, 31), Phaser.Math.Between(0, 31), Phaser.Math.Between(4, 7));
+      // Broad shadow pockets (less speckle, more readable texture).
+      gfx.fillStyle(0x050e09, 0.33);
+      for (let i = 0; i < 3; i++) {
+        gfx.fillCircle(ox + Phaser.Math.Between(6, 26), Phaser.Math.Between(6, 26), Phaser.Math.Between(6, 9));
       }
 
-      gfx.fillStyle(foliageA, 0.95);
-      for (let i = 0; i < 60; i++) {
-        gfx.fillCircle(ox + Phaser.Math.Between(0, 31), Phaser.Math.Between(0, 31), Phaser.Math.Between(1, 2));
+      // Leaf clumps.
+      gfx.fillStyle(foliageA, 0.9);
+      for (let i = 0; i < 14; i++) {
+        gfx.fillCircle(ox + Phaser.Math.Between(2, 29), Phaser.Math.Between(2, 29), Phaser.Math.Between(2, 4));
       }
-      gfx.fillStyle(foliageB, 0.9);
-      for (let i = 0; i < 40; i++) {
-        gfx.fillCircle(ox + Phaser.Math.Between(0, 31), Phaser.Math.Between(0, 31), Phaser.Math.Between(1, 2));
-      }
-
-      // tiny accents
-      gfx.fillStyle(0xfbbf24, 0.18);
-      for (let i = 0; i < 5; i++) {
-        gfx.fillCircle(ox + Phaser.Math.Between(2, 29), Phaser.Math.Between(2, 29), 1);
+      gfx.fillStyle(foliageB, 0.8);
+      for (let i = 0; i < 10; i++) {
+        gfx.fillCircle(ox + Phaser.Math.Between(2, 29), Phaser.Math.Between(2, 29), Phaser.Math.Between(1, 3));
       }
 
-      gfx.lineStyle(1, 0x0b1220, 0.35);
-      gfx.strokeRect(ox + 0.5, 0.5, 31, 31);
+      // Tiny accents (flowers / fireflies).
+      gfx.fillStyle(0xfbbf24, 0.14);
+      for (let i = 0; i < 4; i++) {
+        gfx.fillRect(ox + Phaser.Math.Between(2, 29), Phaser.Math.Between(2, 29), 1, 1);
+      }
+
+      applyTileLighting(ox);
     };
 
     const drawClearing = (ox: number) => {
       gfx.fillStyle(0x2a2f1d, 1);
       gfx.fillRect(ox, 0, 32, 32);
-      gfx.lineStyle(2, 0xa3a36a, 0.25);
-      for (let i = 0; i < 7; i++) {
+
+      // Trampled grass streaks.
+      gfx.lineStyle(2, 0xa3a36a, 0.24);
+      for (let i = 0; i < 10; i++) {
         const x1 = ox + Phaser.Math.Between(0, 31);
         const y1 = Phaser.Math.Between(0, 31);
         gfx.beginPath();
         gfx.moveTo(x1, y1);
-        gfx.lineTo(x1 + Phaser.Math.Between(4, 10), y1 + Phaser.Math.Between(-1, 5));
+        gfx.lineTo(x1 + Phaser.Math.Between(6, 14), y1 + Phaser.Math.Between(-2, 6));
         gfx.strokePath();
       }
-      gfx.lineStyle(1, 0x0b1220, 0.25);
-      gfx.strokeRect(ox + 0.5, 0.5, 31, 31);
+
+      // Dirt patches.
+      gfx.fillStyle(0x3f1d0b, 0.12);
+      for (let i = 0; i < 8; i++) {
+        gfx.fillCircle(ox + Phaser.Math.Between(4, 28), Phaser.Math.Between(4, 28), Phaser.Math.Between(2, 5));
+      }
+
+      applyTileLighting(ox);
     };
 
     const drawPath = (ox: number) => {
       gfx.fillStyle(0x0a1710, 1);
       gfx.fillRect(ox, 0, 32, 32);
-      gfx.fillStyle(0x3b2a1a, 1);
-      gfx.fillRoundedRect(ox + 0, 7, 32, 18, 10);
 
-      gfx.fillStyle(0xe5e7eb, 0.35);
-      for (let i = 0; i < 7; i++) {
-        gfx.fillCircle(ox + Phaser.Math.Between(4, 28), Phaser.Math.Between(10, 22), 1);
+      // Packed dirt band.
+      gfx.fillStyle(0x3b2a1a, 1);
+      gfx.fillRoundedRect(ox + 0, 8, 32, 16, 9);
+
+      // Darker edges to read as a worn groove.
+      gfx.fillStyle(0x2a1b10, 0.55);
+      gfx.fillRoundedRect(ox + 0, 8, 32, 4, 9);
+      gfx.fillRoundedRect(ox + 0, 20, 32, 4, 9);
+
+      // Pebbles.
+      gfx.fillStyle(0xe5e7eb, 0.28);
+      for (let i = 0; i < 10; i++) {
+        gfx.fillRect(ox + Phaser.Math.Between(4, 28), Phaser.Math.Between(10, 22), 1, 1);
       }
-      gfx.lineStyle(1, 0x0b1220, 0.25);
-      gfx.strokeRect(ox + 0.5, 0.5, 31, 31);
+
+      applyTileLighting(ox);
     };
 
     const drawWater = (ox: number) => {
       gfx.fillStyle(0x0b2942, 1);
       gfx.fillRect(ox, 0, 32, 32);
-      gfx.fillStyle(0x1e3a8a, 0.25);
-      for (let i = 0; i < 10; i++) {
-        gfx.fillEllipse(ox + Phaser.Math.Between(0, 31), Phaser.Math.Between(0, 31), Phaser.Math.Between(10, 18), Phaser.Math.Between(4, 8));
+
+      // Depth gradient.
+      gfx.fillStyle(0x0b3a5a, 0.35);
+      gfx.fillRect(ox, 0, 32, 10);
+      gfx.fillStyle(0x07263d, 0.35);
+      gfx.fillRect(ox, 22, 32, 10);
+
+      // Soft swells.
+      gfx.fillStyle(0x1d4ed8, 0.12);
+      for (let i = 0; i < 6; i++) {
+        gfx.fillEllipse(
+          ox + Phaser.Math.Between(2, 30),
+          Phaser.Math.Between(2, 30),
+          Phaser.Math.Between(12, 18),
+          Phaser.Math.Between(4, 7),
+        );
       }
-      gfx.lineStyle(2, 0x38bdf8, 0.22);
-      for (let y = 6; y <= 28; y += 8) {
+
+      // Wave highlights.
+      gfx.lineStyle(2, 0x38bdf8, 0.18);
+      for (let y = 7; y <= 27; y += 7) {
         gfx.beginPath();
         gfx.moveTo(ox + 2, y);
-        gfx.lineTo(ox + 30, y + Phaser.Math.Between(-2, 2));
+        gfx.lineTo(ox + 30, y + Phaser.Math.Between(-1, 1));
         gfx.strokePath();
       }
-      gfx.lineStyle(1, 0x0b1220, 0.25);
-      gfx.strokeRect(ox + 0.5, 0.5, 31, 31);
+
+      applyTileLighting(ox);
     };
 
     const drawTree = (ox: number) => {
-      // Canopy
+
+      // Ground under the tree so the silhouette reads against any tile.
+      gfx.fillStyle(0x0a1710, 1);
+      gfx.fillRect(ox, 0, 32, 32);
+      gfx.fillStyle(0x050e09, 0.22);
+      gfx.fillCircle(ox + 18, 18, 10);
+
+      // Canopy + shadow.
+      gfx.fillStyle(0x000000, 0.16);
+      gfx.fillEllipse(ox + 18, 22, 18, 8);
+
       gfx.fillStyle(0x14532d, 1);
-      gfx.fillCircle(ox + 16, 16, 12);
+      gfx.fillCircle(ox + 16, 15, 12);
       gfx.fillStyle(0x166534, 1);
       gfx.fillCircle(ox + 14, 14, 10);
       gfx.fillStyle(0x15803d, 1);
-      gfx.fillCircle(ox + 18, 18, 8);
+      gfx.fillCircle(ox + 18, 16, 8);
+      gfx.fillStyle(0x22c55e, 0.22);
+      gfx.fillCircle(ox + 12, 11, 5);
 
-      // trunk
-      gfx.fillStyle(0x5b3416, 0.9);
-      gfx.fillCircle(ox + 16, 18, 3);
-      gfx.lineStyle(1, stroke, 0.6);
-      gfx.strokeCircle(ox + 16, 18, 3);
+      // Trunk.
+      gfx.fillStyle(0x5b3416, 0.95);
+      gfx.fillRoundedRect(ox + 14, 18, 4, 7, 2);
+      gfx.fillStyle(0x92400e, 0.35);
+      gfx.fillRect(ox + 15, 19, 1, 5);
+      gfx.lineStyle(1, stroke, 0.55);
+      gfx.strokeRoundedRect(ox + 14, 18, 4, 7, 2);
 
-      gfx.lineStyle(2, stroke, 0.6);
-      gfx.strokeCircle(ox + 16, 16, 12);
-      gfx.lineStyle(1, 0x0b1220, 0.25);
-      gfx.strokeRect(ox + 0.5, 0.5, 31, 31);
+      gfx.lineStyle(2, stroke, 0.55);
+      gfx.strokeCircle(ox + 16, 15, 12);
+
+      applyTileLighting(ox);
     };
 
     const drawRock = (ox: number) => {
-      gfx.fillStyle(0x23304d, 1);
-      gfx.fillRoundedRect(ox + 6, 8, 20, 18, 8);
-      gfx.fillStyle(0x30446c, 0.85);
-      gfx.fillRoundedRect(ox + 8, 10, 16, 7, 6);
-      gfx.lineStyle(2, stroke, 0.7);
-      gfx.strokeRoundedRect(ox + 6, 8, 20, 18, 8);
 
-      gfx.fillStyle(0x34d399, 0.15);
+      // Ground behind rock.
+      gfx.fillStyle(0x0a1710, 1);
+      gfx.fillRect(ox, 0, 32, 32);
+      gfx.fillStyle(0x050e09, 0.18);
+      gfx.fillCircle(ox + 20, 20, 9);
+
+      // Rock body.
+      gfx.fillStyle(0x23304d, 1);
+      gfx.fillRoundedRect(ox + 6, 9, 20, 16, 7);
+      gfx.fillStyle(0x30446c, 0.85);
+      gfx.fillRoundedRect(ox + 8, 11, 16, 6, 6);
+      gfx.fillStyle(0x3b5584, 0.35);
+      gfx.fillRoundedRect(ox + 10, 16, 10, 4, 4);
+
+      // Moss/lichen.
+      gfx.fillStyle(0x34d399, 0.18);
       gfx.fillCircle(ox + 10, 18, 4);
-      gfx.lineStyle(1, 0x0b1220, 0.25);
-      gfx.strokeRect(ox + 0.5, 0.5, 31, 31);
+      gfx.fillStyle(0xe5e7eb, 0.12);
+      for (let i = 0; i < 6; i++) {
+        gfx.fillRect(ox + Phaser.Math.Between(9, 23), Phaser.Math.Between(12, 23), 1, 1);
+      }
+
+      gfx.lineStyle(2, stroke, 0.65);
+      gfx.strokeRoundedRect(ox + 6, 9, 20, 16, 7);
+
+      applyTileLighting(ox);
     };
 
     drawForest(0, 0x09140e, 0x0f2a1a, 0x163d26);
@@ -381,24 +479,36 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.strokeRoundedRect(4, 6, 120, 20, 8);
     gfx.fillStyle(0x111827, 0.35);
     gfx.fillRoundedRect(6, 8, 116, 7, 6);
+
+    // Subtle top edge highlight to separate from dark scenes.
+    gfx.lineStyle(1, 0xe5e7eb, 0.08);
+    gfx.beginPath();
+    gfx.moveTo(12, 9);
+    gfx.lineTo(116, 9);
+    gfx.strokePath();
   });
 
   makeTexture('leader', 32, 32, (gfx) => {
-    // Body (shaded)
+    // Body (shaded) + tiny feet nubs for motion readability.
     shadedCircle(gfx, 16, 18, 10, 0x38bdf8, 0x0ea5e9, 0x93c5fd);
+    gfx.fillStyle(0x111827, 0.35);
+    gfx.fillRoundedRect(11, 25, 4, 3, 1);
+    gfx.fillRoundedRect(17, 25, 4, 3, 1);
 
     // Face/eyes
     gfx.fillStyle(0x111827, 0.85);
-    gfx.fillCircle(13.2, 17.5, 1.2);
-    gfx.fillCircle(18.4, 17.5, 1.2);
-    gfx.fillStyle(0xffffff, 0.8);
-    gfx.fillCircle(12.7, 17, 0.45);
-    gfx.fillCircle(17.9, 17, 0.45);
+    gfx.fillCircle(13.3, 17.3, 1.1);
+    gfx.fillCircle(18.3, 17.3, 1.1);
+    gfx.fillStyle(0xffffff, 0.75);
+    gfx.fillCircle(12.9, 16.9, 0.45);
+    gfx.fillCircle(17.9, 16.9, 0.45);
 
-    // Hat
+    // Hat with clearer silhouette
     gfx.fillStyle(0x1f2937, 1);
     gfx.fillTriangle(10, 11, 22, 11, 16, 4);
     gfx.fillRoundedRect(9, 11, 14, 5, 2);
+    gfx.fillStyle(0xe5e7eb, 0.08);
+    gfx.fillTriangle(12, 11, 20, 11, 16, 6);
     gfx.lineStyle(2, stroke, 0.85);
     gfx.strokeTriangle(10, 11, 22, 11, 16, 4);
     strokeRoundedRect(gfx, 9, 11, 14, 5, 2);
@@ -421,15 +531,23 @@ export function createProceduralTextures(scene: Phaser.Scene) {
 
   makeTexture('scout', 28, 28, (gfx) => {
     shadedCircle(gfx, 14, 15, 9, 0x22c55e, 0x16a34a, 0x86efac);
+    gfx.fillStyle(0x111827, 0.32);
+    gfx.fillRoundedRect(9.5, 21.5, 3.8, 2.6, 1);
+    gfx.fillRoundedRect(15.0, 21.5, 3.8, 2.6, 1);
 
     // Eyes
     gfx.fillStyle(0x111827, 0.75);
-    gfx.fillCircle(11.5, 14.5, 1);
-    gfx.fillCircle(15.8, 14.5, 1);
+    gfx.fillCircle(11.7, 14.3, 1);
+    gfx.fillCircle(15.6, 14.3, 1);
+    gfx.fillStyle(0xffffff, 0.55);
+    gfx.fillCircle(11.3, 13.9, 0.35);
+    gfx.fillCircle(15.2, 13.9, 0.35);
 
     // Bandana stripe
     gfx.fillStyle(0x14532d, 1);
     gfx.fillRoundedRect(7, 9, 14, 5, 3);
+    gfx.fillStyle(0xe5e7eb, 0.06);
+    gfx.fillRoundedRect(8, 10, 12, 2, 2);
     strokeRoundedRect(gfx, 7, 9, 14, 5, 3);
 
     // Small backpack
@@ -562,6 +680,83 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.fillTriangle(17, 12, 13, 24, 21, 24);
   });
 
+  const drawTentStage = (gfx: Phaser.GameObjects.Graphics, stage: 0 | 1 | 2 | 3) => {
+    buildBase(gfx);
+
+    if (stage === 0) {
+      // Blueprint only.
+      gfx.lineStyle(2, 0x38bdf8, 0.55);
+      gfx.strokeTriangle(17, 11, 10, 24, 24, 24);
+      gfx.lineStyle(2, 0x93c5fd, 0.35);
+      gfx.strokeRoundedRect(11, 22, 12, 3, 2);
+      return;
+    }
+
+    // Poles/scaffolding.
+    gfx.lineStyle(2, 0x111827, stage === 1 ? 0.55 : 0.75);
+    gfx.beginPath();
+    gfx.moveTo(17, 11);
+    gfx.lineTo(11, 24);
+    gfx.moveTo(17, 11);
+    gfx.lineTo(23, 24);
+    gfx.strokePath();
+
+    if (stage === 1) {
+      gfx.fillStyle(0xe5e7eb, 0.16);
+      gfx.fillTriangle(17, 12, 13, 24, 21, 24);
+      return;
+    }
+
+    // Hut body (reads as a hut vs. a pure tent marker).
+    // Footprint / floor.
+    gfx.fillStyle(0x3f1d0b, stage === 2 ? 0.25 : 0.35);
+    gfx.fillRoundedRect(10, 22, 14, 4, 2);
+
+    // Walls.
+    gfx.fillStyle(0xd1d5db, stage === 2 ? 0.45 : 0.85);
+    gfx.fillRoundedRect(10.5, 16.5, 13, 8, 2);
+    gfx.fillStyle(0xffffff, stage === 2 ? 0.10 : 0.16);
+    gfx.fillRoundedRect(11.5, 17.5, 11, 2.5, 2);
+
+    // Roof (canvas roof, still tent-y but hut-shaped).
+    gfx.fillStyle(0x4c1d95, stage === 2 ? 0.6 : 0.95);
+    gfx.fillTriangle(17, 9, 8.5, 17, 25.5, 17);
+    gfx.fillStyle(0xddd6fe, stage === 2 ? 0.28 : 0.5);
+    gfx.fillTriangle(17, 10.5, 11, 17, 23, 17);
+
+    // Eaves.
+    gfx.fillStyle(0x1f2937, stage === 2 ? 0.18 : 0.28);
+    gfx.fillRoundedRect(10, 16.3, 14, 1.8, 1);
+
+    // Door.
+    gfx.fillStyle(0x111827, stage === 2 ? 0.32 : 0.65);
+    gfx.fillRoundedRect(15.4, 19, 4.2, 6, 1);
+    gfx.fillStyle(0xe5e7eb, stage === 2 ? 0.08 : 0.14);
+    gfx.fillCircle(18.8, 22, 0.7);
+
+    gfx.lineStyle(2, stroke, stage === 2 ? 0.6 : 0.85);
+    gfx.strokeTriangle(17, 9, 8.5, 17, 25.5, 17);
+    gfx.strokeRoundedRect(10.5, 16.5, 13, 8, 2);
+
+    if (stage === 3) {
+      // Little chimney puff / final polish.
+      gfx.fillStyle(0x111827, 0.65);
+      gfx.fillRoundedRect(22.5, 10.5, 3, 5, 1);
+      gfx.lineStyle(2, stroke, 0.75);
+      gfx.strokeRoundedRect(22.5, 10.5, 3, 5, 1);
+
+      gfx.fillStyle(0xe5e7eb, 0.12);
+      gfx.fillCircle(23, 12, 2);
+      gfx.fillStyle(0xffffff, 0.06);
+      gfx.fillCircle(21.5, 10.8, 1.2);
+    }
+  };
+
+  makeTexture('build_tent_s0', 34, 34, (gfx) => drawTentStage(gfx, 0));
+  makeTexture('build_tent_s1', 34, 34, (gfx) => drawTentStage(gfx, 1));
+  makeTexture('build_tent_s2', 34, 34, (gfx) => drawTentStage(gfx, 2));
+  makeTexture('build_tent_s3', 34, 34, (gfx) => drawTentStage(gfx, 3));
+
   makeTexture('build_fire', 34, 34, (gfx) => {
     buildBase(gfx);
     // Logs
@@ -596,6 +791,96 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.strokeTriangle(14, 11, 24, 14, 14, 17);
   });
 
+  const drawFlagStage = (gfx: Phaser.GameObjects.Graphics, stage: 0 | 1 | 2 | 3) => {
+    buildBase(gfx);
+
+    // This site is also a hut in gameplay; give it a distinct hut silhouette (wooden cabin).
+    // Foundation marker.
+    gfx.fillStyle(0x3f1d0b, 0.22);
+    gfx.fillRoundedRect(10, 23, 14, 3, 2);
+
+    if (stage === 0) {
+      // Blueprint cabin outline.
+      gfx.lineStyle(2, 0x38bdf8, 0.55);
+      gfx.strokeRoundedRect(11, 16, 12, 8, 2);
+      gfx.beginPath();
+      gfx.moveTo(17, 11);
+      gfx.lineTo(10, 16);
+      gfx.moveTo(17, 11);
+      gfx.lineTo(24, 16);
+      gfx.strokePath();
+      gfx.lineStyle(2, 0x93c5fd, 0.35);
+      gfx.strokeRoundedRect(16, 19, 3, 5, 1);
+      return;
+    }
+
+    if (stage === 1) {
+      // Frame only.
+      gfx.lineStyle(2, 0x111827, 0.55);
+      gfx.strokeRoundedRect(11, 16, 12, 8, 2);
+      gfx.beginPath();
+      gfx.moveTo(17, 11);
+      gfx.lineTo(10, 16);
+      gfx.moveTo(17, 11);
+      gfx.lineTo(24, 16);
+      gfx.strokePath();
+      gfx.fillStyle(0xe5e7eb, 0.12);
+      gfx.fillRoundedRect(12, 18, 10, 3, 2);
+      return;
+    }
+
+    // Cabin walls.
+    gfx.fillStyle(0x92400e, stage === 2 ? 0.55 : 0.92);
+    gfx.fillRoundedRect(10.5, 16.2, 13.5, 8.3, 2);
+    gfx.fillStyle(0xfbbf24, stage === 2 ? 0.14 : 0.22);
+    for (let y = 18; y <= 24; y += 2) {
+      gfx.fillRect(11.5, y, 11.5, 1);
+    }
+
+    // Roof.
+    gfx.fillStyle(0x1f2937, stage === 2 ? 0.55 : 0.95);
+    gfx.fillTriangle(17, 9, 8.2, 16.2, 25.8, 16.2);
+    gfx.fillStyle(0x334155, stage === 2 ? 0.22 : 0.35);
+    gfx.fillTriangle(17, 10.7, 11.2, 16.2, 22.8, 16.2);
+
+    // Eaves.
+    gfx.fillStyle(0x111827, stage === 2 ? 0.16 : 0.26);
+    gfx.fillRoundedRect(10, 15.8, 14.8, 2, 1);
+
+    // Door + window.
+    gfx.fillStyle(0x111827, stage === 2 ? 0.28 : 0.6);
+    gfx.fillRoundedRect(15.2, 18.8, 4.6, 6.4, 1);
+    gfx.fillStyle(0xe5e7eb, stage === 2 ? 0.07 : 0.12);
+    gfx.fillCircle(18.9, 22, 0.7);
+
+    // Larger window with cross muntins.
+    gfx.fillStyle(0x38bdf8, stage === 2 ? 0.12 : 0.22);
+    gfx.fillRoundedRect(11.7, 18.3, 4.6, 4.6, 1);
+    gfx.fillStyle(0x111827, stage === 2 ? 0.10 : 0.16);
+    gfx.fillRect(13.9, 18.6, 0.8, 4);
+    gfx.fillRect(12.0, 20.4, 4.0, 0.8);
+
+    gfx.lineStyle(2, stroke, stage === 2 ? 0.6 : 0.85);
+    gfx.strokeRoundedRect(10.5, 16.2, 13.5, 8.3, 2);
+    gfx.strokeTriangle(17, 9, 8.2, 16.2, 25.8, 16.2);
+
+    if (stage === 3) {
+      // Small flag to keep the identity of this site.
+      gfx.lineStyle(2, 0x111827, 0.9);
+      gfx.beginPath();
+      gfx.moveTo(24, 12);
+      gfx.lineTo(24, 18);
+      gfx.strokePath();
+      gfx.fillStyle(0x38bdf8, 0.8);
+      gfx.fillTriangle(24, 12.5, 29, 14.5, 24, 16.5);
+    }
+  };
+
+  makeTexture('build_flag_s0', 34, 34, (gfx) => drawFlagStage(gfx, 0));
+  makeTexture('build_flag_s1', 34, 34, (gfx) => drawFlagStage(gfx, 1));
+  makeTexture('build_flag_s2', 34, 34, (gfx) => drawFlagStage(gfx, 2));
+  makeTexture('build_flag_s3', 34, 34, (gfx) => drawFlagStage(gfx, 3));
+
   makeTexture('wood_pile', 34, 34, (gfx) => {
     // Small pile of logs.
     gfx.fillStyle(0x0b1220, 0.25);
@@ -618,6 +903,43 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.fillCircle(12, 12, 1);
     gfx.fillCircle(24, 15, 1);
   });
+
+  const drawWoodPileStage = (gfx: Phaser.GameObjects.Graphics, stage: 0 | 1 | 2 | 3) => {
+    gfx.fillStyle(0x0b1220, 0.25);
+    gfx.fillEllipse(17, 26, 24, 8);
+
+    const drawLog = (x: number, y: number, w: number, h: number, tint: number) => {
+      gfx.fillStyle(tint, 1);
+      gfx.fillRoundedRect(x, y, w, h, 4);
+      gfx.fillStyle(0xfbbf24, 0.22);
+      gfx.fillRoundedRect(x + 2, y + 2, w - 4, Math.max(2, Math.floor(h * 0.35)), 3);
+      gfx.lineStyle(2, stroke, 0.75);
+      gfx.strokeRoundedRect(x + 0.5, y + 0.5, w - 1, h - 1, 4);
+    };
+
+    if (stage >= 0) {
+      drawLog(8, 18, 18, 7, 0x7c2d12);
+    }
+    if (stage >= 1) {
+      drawLog(7, 11, 20, 7, 0x92400e);
+    }
+    if (stage >= 2) {
+      drawLog(6, 20, 22, 8, 0x9a3412);
+      gfx.fillStyle(0xe5e7eb, 0.22);
+      gfx.fillCircle(12, 12, 1);
+      gfx.fillCircle(24, 15, 1);
+    }
+    if (stage >= 3) {
+      drawLog(10, 7, 16, 7, 0x92400e);
+      gfx.fillStyle(0xffffff, 0.06);
+      gfx.fillCircle(16, 9, 2);
+    }
+  };
+
+  makeTexture('wood_pile_s0', 34, 34, (gfx) => drawWoodPileStage(gfx, 0));
+  makeTexture('wood_pile_s1', 34, 34, (gfx) => drawWoodPileStage(gfx, 1));
+  makeTexture('wood_pile_s2', 34, 34, (gfx) => drawWoodPileStage(gfx, 2));
+  makeTexture('wood_pile_s3', 34, 34, (gfx) => drawWoodPileStage(gfx, 3));
 
   makeTexture('water_tank', 34, 34, (gfx) => {
     // Simple tank + water window.
@@ -642,6 +964,41 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.lineStyle(2, stroke, 0.8);
     gfx.strokeRoundedRect(9, 9, 16, 18, 6);
   });
+
+  const drawWaterTankStage = (gfx: Phaser.GameObjects.Graphics, stage: 0 | 1 | 2 | 3) => {
+    // Simple tank + water window (water level varies by stage).
+    gfx.fillStyle(0x0b1220, 0.25);
+    gfx.fillEllipse(17, 27, 24, 8);
+
+    gfx.fillStyle(0x1f2937, 1);
+    gfx.fillRoundedRect(9, 9, 16, 18, 6);
+    gfx.fillStyle(0x334155, 0.95);
+    gfx.fillRoundedRect(11, 11, 12, 14, 5);
+
+    // Water level window
+    gfx.fillStyle(0x0b2942, 1);
+    gfx.fillRoundedRect(13, 16, 8, 8, 3);
+
+    const level = stage === 0 ? 0 : stage === 1 ? 2 : stage === 2 ? 4 : 7;
+    if (level > 0) {
+      gfx.fillStyle(0x38bdf8, 0.22);
+      gfx.fillRoundedRect(13, 24 - level, 8, level, 3);
+      gfx.fillStyle(0x93c5fd, stage === 3 ? 0.22 : 0.14);
+      gfx.fillRoundedRect(13, 24 - level, 8, 1, 3);
+    }
+
+    // Cap
+    gfx.fillStyle(0x111827, 1);
+    gfx.fillRoundedRect(13, 7, 8, 5, 2);
+
+    gfx.lineStyle(2, stroke, 0.8);
+    gfx.strokeRoundedRect(9, 9, 16, 18, 6);
+  };
+
+  makeTexture('water_tank_s0', 34, 34, (gfx) => drawWaterTankStage(gfx, 0));
+  makeTexture('water_tank_s1', 34, 34, (gfx) => drawWaterTankStage(gfx, 1));
+  makeTexture('water_tank_s2', 34, 34, (gfx) => drawWaterTankStage(gfx, 2));
+  makeTexture('water_tank_s3', 34, 34, (gfx) => drawWaterTankStage(gfx, 3));
 
   makeTexture('obstacle', 72, 72, (gfx) => {
     // Rock A (no baked shadow; we place a real one in world).

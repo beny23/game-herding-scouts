@@ -10,8 +10,9 @@ export type Hud = {
 
 export function createHud(scene: Phaser.Scene): Hud {
   const isCompact = scene.scale.height <= 300;
-  const fontSize = isCompact ? '8px' : '10px';
+  const fontSize = isCompact ? '9px' : '12px';
   const margin = isCompact ? 4 : 6;
+  const strokeThickness = isCompact ? 1 : 2;
 
   const checklistPanel = scene.add.graphics().setScrollFactor(0).setDepth(999);
   const promptPanel = scene.add.graphics().setScrollFactor(0).setDepth(999);
@@ -20,20 +21,30 @@ export function createHud(scene: Phaser.Scene): Hud {
     .text(margin, margin, '', {
       fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
       fontSize,
-      color: '#e5e7eb',
+      color: '#f8fafc',
+      fontStyle: '600',
+      lineSpacing: isCompact ? 1 : 3,
     })
     .setScrollFactor(0)
     .setDepth(1000);
+
+  checklistText.setStroke('#0b1220', strokeThickness);
+  checklistText.setShadow(1, 1, '#000000', 4, true, true);
 
   const promptText = scene.add
     .text(margin, scene.scale.height - margin, '', {
       fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
       fontSize,
-      color: '#e5e7eb',
+      color: '#f8fafc',
+      fontStyle: '600',
+      lineSpacing: isCompact ? 1 : 2,
     })
     .setOrigin(0, 1)
     .setScrollFactor(0)
     .setDepth(1000);
+
+  promptText.setStroke('#0b1220', strokeThickness);
+  promptText.setShadow(1, 1, '#000000', 4, true, true);
 
   return { checklistPanel, promptPanel, checklistText, promptText };
 }
@@ -93,8 +104,8 @@ export function updateHudPanels(hud: Hud) {
   const maxW = Math.max(40, hud.checklistText.scene.scale.width - 12);
   const w = Math.min(maxW, Math.max(isCompact ? 108 : 180, hud.checklistText.width + pad * 2));
   const h = hud.checklistText.height + pad * 2;
-  hud.checklistPanel.fillStyle(0x0b1220, 0.72);
-  hud.checklistPanel.lineStyle(2, 0x1f2937, 0.9);
+  hud.checklistPanel.fillStyle(0x0b1220, 0.8);
+  hud.checklistPanel.lineStyle(2, 0x1f2937, 0.95);
   hud.checklistPanel.fillRoundedRect(x - pad, y - pad, w, h, isCompact ? 6 : 10);
   hud.checklistPanel.strokeRoundedRect(x - pad, y - pad, w, h, isCompact ? 6 : 10);
 
@@ -105,8 +116,8 @@ export function updateHudPanels(hud: Hud) {
   const ph = hud.promptText.height + pad * 2;
   const px = hud.promptText.x;
   const pyTop = hud.promptText.y - hud.promptText.height;
-  hud.promptPanel.fillStyle(0x0b1220, 0.72);
-  hud.promptPanel.lineStyle(2, 0x1f2937, 0.9);
+  hud.promptPanel.fillStyle(0x0b1220, 0.8);
+  hud.promptPanel.lineStyle(2, 0x1f2937, 0.95);
   hud.promptPanel.fillRoundedRect(px - pad, pyTop - pad, pw, ph, isCompact ? 6 : 10);
   hud.promptPanel.strokeRoundedRect(px - pad, pyTop - pad, pw, ph, isCompact ? 6 : 10);
 }

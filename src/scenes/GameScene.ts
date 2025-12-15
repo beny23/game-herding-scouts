@@ -36,6 +36,7 @@ export class GameScene extends Phaser.Scene {
   private woodStockpile = 0;
   private waterStockpile = 0;
   private woodPile = { x: 0, y: 0 };
+  private woodPileSprite!: Phaser.GameObjects.Image;
 
   private tasks: Record<TaskId, BuildTask> | null = null;
 
@@ -78,6 +79,7 @@ export class GameScene extends Phaser.Scene {
     const worldResult = createWorldLayout({ scene: this, world, interactables: this.interactables, tileWorld: this.tileWorld });
     this.tasks = worldResult.tasks;
     this.woodPile = worldResult.woodPile;
+    this.woodPileSprite = worldResult.woodPileSprite;
 
     this.leader = this.physics.add.sprite(this.tileWorld.leaderSpawn.x, this.tileWorld.leaderSpawn.y, 'leader');
     this.leader.setCollideWorldBounds(true);
@@ -218,10 +220,41 @@ export class GameScene extends Phaser.Scene {
       updateDepth(scout.sprite);
     }
 
+    this.updateProgressVisuals();
+
     updateChecklistText(this.hud, this.tasks, this.woodStockpile, this.waterStockpile);
     this.updatePromptAndHighlight();
     updateHudPanels(this.hud);
     updateBuildProgressRings(this.buildProgressGfx, this.tasks);
+  }
+
+  private updateProgressVisuals() {
+    if (!this.tasks) return;
+
+    const stageFrom01 = (p: number) => {
+      if (!Number.isFinite(p)) return 0;
+      const t = Phaser.Math.Clamp(p, 0, 1);
+      return Math.min(3, Math.floor(t * 4));
+    };
+
+    const setIfChanged = (sprite: Phaser.GameObjects.Sprite, key: string) => {
+      if (sprite.texture?.key === key) return;
+      sprite.setTexture(key);
+    };
+
+    const hutAStage = stageFrom01(this.tasks.hutA.progress01);
+    const hutBStage = stageFrom01(this.tasks.hutB.progress01);
+    const tankStage = stageFrom01(this.tasks.waterTank.progress01);
+
+    setIfChanged(this.tasks.hutA.sprite, `build_tent_s${hutAStage}`);
+    setIfChanged(this.tasks.hutB.sprite, `build_flag_s${hutBStage}`);
+    setIfChanged(this.tasks.waterTank.sprite, `water_tank_s${tankStage}`);
+
+    // Wood pile fullness is driven by stockpile amount.
+    const woodStage = this.woodStockpile <= 0 ? 0 : this.woodStockpile < 5 ? 1 : this.woodStockpile < 10 ? 2 : 3;
+    if (this.woodPileSprite && this.woodPileSprite.texture?.key !== `wood_pile_s${woodStage}`) {
+      this.woodPileSprite.setTexture(`wood_pile_s${woodStage}`);
+    }
   }
 
   private inFrontAndClose(targetX: number, targetY: number, maxDist: number, minDot: number) {
@@ -256,7 +289,6 @@ export class GameScene extends Phaser.Scene {
 
     return best;
   }
-
 
   private getFacingTarget():
     | { kind: 'interactable'; sprite: Phaser.Physics.Arcade.Sprite }
