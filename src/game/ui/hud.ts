@@ -9,22 +9,26 @@ export type Hud = {
 };
 
 export function createHud(scene: Phaser.Scene): Hud {
+  const isCompact = scene.scale.height <= 300;
+  const fontSize = isCompact ? '8px' : '10px';
+  const margin = isCompact ? 4 : 6;
+
   const checklistPanel = scene.add.graphics().setScrollFactor(0).setDepth(999);
   const promptPanel = scene.add.graphics().setScrollFactor(0).setDepth(999);
 
   const checklistText = scene.add
-    .text(12, 12, '', {
+    .text(margin, margin, '', {
       fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
-      fontSize: '16px',
+      fontSize,
       color: '#e5e7eb',
     })
     .setScrollFactor(0)
     .setDepth(1000);
 
   const promptText = scene.add
-    .text(12, 540 - 12, '', {
+    .text(margin, scene.scale.height - margin, '', {
       fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
-      fontSize: '16px',
+      fontSize,
       color: '#e5e7eb',
     })
     .setOrigin(0, 1)
@@ -42,6 +46,24 @@ export function updateChecklistText(hud: Hud, tasks: Record<TaskId, BuildTask> |
 
   const taskList = Object.values(tasks);
   const allComplete = taskList.every((t) => t.complete);
+
+  // Compact HUD for low internal resolutions (e.g. 320x180).
+  const isCompact = hud.checklistText.scene.scale.height <= 300;
+  if (isCompact) {
+    const byId = (id: TaskId) => taskList.find((t) => t.id === id);
+    const pct = (t: BuildTask | undefined) => (t ? Math.round(t.progress01 * 100) : 0);
+
+    const hutA = byId('hutA');
+    const hutB = byId('hutB');
+    const waterTank = byId('waterTank');
+
+    const lines = allComplete
+      ? ['All complete!']
+      : [`W ${Math.floor(wood)}  Wa ${Math.floor(water)}`, `A ${pct(hutA)}%  B ${pct(hutB)}%  T ${pct(waterTank)}%`];
+
+    hud.checklistText.setText(lines.join('\n'));
+    return;
+  }
 
   const lines = [
     'Checklist',
@@ -64,25 +86,27 @@ export function updatePromptText(hud: Hud, prompt: string) {
 
 export function updateHudPanels(hud: Hud) {
   hud.checklistPanel.clear();
-  const pad = 10;
+  const isCompact = hud.checklistText.scene.scale.height <= 300;
+  const pad = isCompact ? 4 : 6;
   const x = hud.checklistText.x;
   const y = hud.checklistText.y;
-  const w = Math.max(240, hud.checklistText.width + pad * 2);
+  const maxW = Math.max(40, hud.checklistText.scene.scale.width - 12);
+  const w = Math.min(maxW, Math.max(isCompact ? 108 : 180, hud.checklistText.width + pad * 2));
   const h = hud.checklistText.height + pad * 2;
   hud.checklistPanel.fillStyle(0x0b1220, 0.72);
   hud.checklistPanel.lineStyle(2, 0x1f2937, 0.9);
-  hud.checklistPanel.fillRoundedRect(x - pad, y - pad, w, h, 10);
-  hud.checklistPanel.strokeRoundedRect(x - pad, y - pad, w, h, 10);
+  hud.checklistPanel.fillRoundedRect(x - pad, y - pad, w, h, isCompact ? 6 : 10);
+  hud.checklistPanel.strokeRoundedRect(x - pad, y - pad, w, h, isCompact ? 6 : 10);
 
   hud.promptPanel.clear();
   if (!hud.promptText.text) return;
 
-  const pw = Math.max(360, hud.promptText.width + pad * 2);
+  const pw = Math.min(maxW, Math.max(isCompact ? 160 : 260, hud.promptText.width + pad * 2));
   const ph = hud.promptText.height + pad * 2;
   const px = hud.promptText.x;
   const pyTop = hud.promptText.y - hud.promptText.height;
   hud.promptPanel.fillStyle(0x0b1220, 0.72);
   hud.promptPanel.lineStyle(2, 0x1f2937, 0.9);
-  hud.promptPanel.fillRoundedRect(px - pad, pyTop - pad, pw, ph, 10);
-  hud.promptPanel.strokeRoundedRect(px - pad, pyTop - pad, pw, ph, 10);
+  hud.promptPanel.fillRoundedRect(px - pad, pyTop - pad, pw, ph, isCompact ? 6 : 10);
+  hud.promptPanel.strokeRoundedRect(px - pad, pyTop - pad, pw, ph, isCompact ? 6 : 10);
 }

@@ -53,6 +53,7 @@ export class GameScene extends Phaser.Scene {
     this.keys = controls.keys;
 
     this.tileWorld = createTilemapWorld({ scene: this });
+    const worldScale = this.tileWorld.tileSize / 32;
 
     const world = { width: this.tileWorld.width, height: this.tileWorld.height };
     this.cameras.main.setBounds(0, 0, world.width, world.height);
@@ -82,7 +83,7 @@ export class GameScene extends Phaser.Scene {
     this.leader.setCollideWorldBounds(true);
     this.leader.setDamping(true);
     this.leader.setDrag(900, 900);
-    this.leader.setMaxVelocity(260, 260);
+    this.leader.setMaxVelocity(260 * worldScale, 260 * worldScale);
 
     attachShadow(this, this.leader, 12);
     enableBobbing(this.leader);
@@ -92,6 +93,7 @@ export class GameScene extends Phaser.Scene {
     this.scouts = spawnScouts({ scene: this, positions: this.tileWorld.scoutSpawns });
 
     for (const scout of this.scouts) {
+      scout.sprite.setMaxVelocity(220 * worldScale, 220 * worldScale);
       this.physics.add.collider(scout.sprite, this.tileWorld.layer);
       this.physics.add.collider(scout.sprite, this.leader);
 
@@ -107,6 +109,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.cameras.main.startFollow(this.leader, true, 0.12, 0.12);
+    this.cameras.main.roundPixels = true;
 
     this.highlightRing = createHighlightRing(this);
 
@@ -153,16 +156,16 @@ export class GameScene extends Phaser.Scene {
           this.waterStockpile -= taken;
           return taken;
         },
-        interactableRange: 72,
-        treeRange: 120,
-        waterRange: 150,
+        interactableRange: 72 * worldScale,
+        treeRange: 120 * worldScale,
+        waterRange: 150 * worldScale,
         forced,
       });
     });
   }
 
   update(time: number, delta: number) {
-    updateLeaderMovement({ leader: this.leader, cursors: this.cursors, keys: this.keys, speed: 260 });
+    updateLeaderMovement({ leader: this.leader, cursors: this.cursors, keys: this.keys, speed: 260 * (this.tileWorld.tileSize / 32) });
 
     const body = this.leader.body as Phaser.Physics.Arcade.Body;
     if (body && (Math.abs(body.velocity.x) > 1 || Math.abs(body.velocity.y) > 1)) {
