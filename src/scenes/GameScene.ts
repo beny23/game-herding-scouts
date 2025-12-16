@@ -38,6 +38,9 @@ export class GameScene extends Phaser.Scene {
   private woodPile = { x: 0, y: 0 };
   private woodPileSprite!: Phaser.GameObjects.Image;
 
+  private campfireLit = false;
+  private campfireBurnMs = 0;
+
   private tasks: Record<TaskId, BuildTask> | null = null;
 
   private hud!: Hud;
@@ -220,6 +223,8 @@ export class GameScene extends Phaser.Scene {
       updateDepth(scout.sprite);
     }
 
+    this.updateCampfireBurn(delta);
+
     this.updateProgressVisuals();
 
     updateChecklistText(this.hud, this.tasks, this.woodStockpile, this.waterStockpile);
@@ -250,10 +255,48 @@ export class GameScene extends Phaser.Scene {
     setIfChanged(this.tasks.hutB.sprite, `build_flag_s${hutBStage}`);
     setIfChanged(this.tasks.waterTank.sprite, `water_tank_s${tankStage}`);
 
+    const campfireStage = stageFrom01(this.tasks.campfire.progress01);
+    if (this.tasks.campfire.complete) {
+      setIfChanged(this.tasks.campfire.sprite, this.campfireLit ? 'campfire_lit' : 'campfire_out');
+    } else {
+      setIfChanged(this.tasks.campfire.sprite, `campfire_s${campfireStage}`);
+    }
+
     // Wood pile fullness is driven by stockpile amount.
     const woodStage = this.woodStockpile <= 0 ? 0 : this.woodStockpile < 5 ? 1 : this.woodStockpile < 10 ? 2 : 3;
     if (this.woodPileSprite && this.woodPileSprite.texture?.key !== `wood_pile_s${woodStage}`) {
       this.woodPileSprite.setTexture(`wood_pile_s${woodStage}`);
+    }
+  }
+
+  private updateCampfireBurn(delta: number) {
+    if (!this.tasks) return;
+    const campfire = this.tasks.campfire;
+    if (!campfire?.complete) return;
+
+    // The campfire consumes wood slowly to stay lit.
+    // If the stockpile runs out, it goes out until more wood is available.
+    const burnIntervalMs = 25000;
+
+    if (!this.campfireLit) {
+      if (this.woodStockpile > 0) {
+        this.woodStockpile = Math.max(0, this.woodStockpile - 1);
+        this.campfireLit = true;
+        this.campfireBurnMs = 0;
+      }
+      return;
+    }
+
+    this.campfireBurnMs += delta;
+    while (this.campfireBurnMs >= burnIntervalMs) {
+      this.campfireBurnMs -= burnIntervalMs;
+      if (this.woodStockpile > 0) {
+        this.woodStockpile = Math.max(0, this.woodStockpile - 1);
+      } else {
+        this.campfireLit = false;
+        this.campfireBurnMs = 0;
+        return;
+      }
     }
   }
 

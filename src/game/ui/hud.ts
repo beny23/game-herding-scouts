@@ -67,10 +67,14 @@ export function updateChecklistText(hud: Hud, tasks: Record<TaskId, BuildTask> |
     const hutA = byId('hutA');
     const hutB = byId('hutB');
     const waterTank = byId('waterTank');
+    const campfire = byId('campfire');
 
     const lines = allComplete
       ? ['All complete!']
-      : [`W ${Math.floor(wood)}  Wa ${Math.floor(water)}`, `A ${pct(hutA)}%  B ${pct(hutB)}%  T ${pct(waterTank)}%`];
+      : [
+          `W ${Math.floor(wood)}  Wa ${Math.floor(water)}`,
+          `A ${pct(hutA)}%  B ${pct(hutB)}%  T ${pct(waterTank)}%  F ${pct(campfire)}%`,
+        ];
 
     hud.checklistText.setText(lines.join('\n'));
     return;

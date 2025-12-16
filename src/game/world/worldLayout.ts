@@ -44,6 +44,7 @@ export function createWorldLayout(params: {
   const hutAPos = snap(cx - 80, cy - 20);
   const hutBPos = snap(cx + 60, cy + 40);
   const tankPos = snap(cx + 160, cy - 40);
+  const campfirePos = snap(cx + 10, cy + 10);
 
   const hutA = createInteractable({
     scene,
@@ -70,6 +71,16 @@ export function createWorldLayout(params: {
     textureKey: 'water_tank_s0',
     kind: 'hut',
     label: 'Water Tank',
+    interactables,
+  });
+
+  const campfire = createInteractable({
+    scene,
+    x: campfirePos.x,
+    y: campfirePos.y,
+    textureKey: 'campfire_s0',
+    kind: 'hut',
+    label: 'Campfire',
     interactables,
   });
 
@@ -101,6 +112,7 @@ export function createWorldLayout(params: {
       hutA: makeTask('hutA', 'Build Hut A', hutA, 'wood', 10),
       hutB: makeTask('hutB', 'Build Hut B', hutB, 'wood', 12),
       waterTank: makeTask('waterTank', 'Fill Water Tank', waterTank, 'water', 12),
+      campfire: makeTask('campfire', 'Build Campfire', campfire, 'wood', 6),
     },
     woodPile: { x: woodPileX, y: woodPileY },
     woodPileSprite,

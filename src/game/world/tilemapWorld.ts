@@ -51,9 +51,29 @@ const TILE_DEFAULT = {
   CLEARING: 2,
   PATH: 3,
   WATER: 4,
-  TREE: 5,
-  ROCK: 6,
+  TREE_A: 5,
+  TREE_B: 6,
+  TREE_C: 7,
+  ROCK_A: 8,
+  ROCK_B: 9,
+  ROCK_C: 10,
 } as const;
+
+const TREE_TILES = [TILE_DEFAULT.TREE_A, TILE_DEFAULT.TREE_B, TILE_DEFAULT.TREE_C] as const;
+const ROCK_TILES = [TILE_DEFAULT.ROCK_A, TILE_DEFAULT.ROCK_B, TILE_DEFAULT.ROCK_C] as const;
+
+function isTreeTileIndex(index: number) {
+  return index === TILE_DEFAULT.TREE_A || index === TILE_DEFAULT.TREE_B || index === TILE_DEFAULT.TREE_C;
+}
+
+function isRockTileIndex(index: number) {
+  return index === TILE_DEFAULT.ROCK_A || index === TILE_DEFAULT.ROCK_B || index === TILE_DEFAULT.ROCK_C;
+}
+
+function pickVariantIndex(variants: ReadonlyArray<number>, r01: number) {
+  const t = Phaser.Math.Clamp(r01, 0, 0.999999);
+  return variants[Math.floor(t * variants.length)] ?? variants[0];
+}
 
 function hash2(x: number, y: number) {
   const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
@@ -210,15 +230,17 @@ export function createTilemapWorld(params: {
 
       const r = hash2Seeded(tx + 1000, ty + 2000, seed);
       if (r < treeChance) {
-        layer.putTileAt(TILE.TREE, tx, ty);
+        const vr = hash2Seeded(tx + 7107, ty + 9901, seed);
+        layer.putTileAt(pickVariantIndex(TREE_TILES, vr), tx, ty);
       } else if (r < treeChance + rockChance) {
-        layer.putTileAt(TILE.ROCK, tx, ty);
+        const vr = hash2Seeded(tx + 2209, ty + 7717, seed);
+        layer.putTileAt(pickVariantIndex(ROCK_TILES, vr), tx, ty);
       }
     }
   }
 
   // Collision.
-  layer.setCollision([TILE.TREE, TILE.ROCK, TILE.WATER], true);
+  layer.setCollision([...TREE_TILES, ...ROCK_TILES, TILE.WATER], true);
   layer.setCollision([TILE.FOREST_A, TILE.FOREST_B, TILE.CLEARING, TILE.PATH], false);
 
   // Helpful spawn positions in the clearing.
@@ -288,7 +310,7 @@ export function createTilemapWorld(params: {
 
         const tile = layer.getTileAt(tx, ty);
         if (!tile) continue;
-        if (tile.index !== TILE.TREE) continue;
+        if (!isTreeTileIndex(tile.index)) continue;
 
         // Trees are collidable; choose a reachable stand point on an adjacent non-colliding tile.
         const stand = findNearestWalkableAround(grid, { tx, ty }, 1);
@@ -330,7 +352,7 @@ export function createTilemapWorld(params: {
 
         const tile = layer.getTileAt(tx, ty);
         if (!tile) continue;
-        if (tile.index !== TILE.TREE) continue;
+        if (!isTreeTileIndex(tile.index)) continue;
 
         const stand = findNearestWalkableAround(grid, { tx, ty }, 1);
         if (!stand) continue;
@@ -388,7 +410,7 @@ export function createTilemapWorld(params: {
           if (n.tx < 0 || n.ty < 0 || n.tx >= cols || n.ty >= rows) continue;
           const nt = layer.getTileAt(n.tx, n.ty);
           if (!nt) continue;
-          if (nt.index === TILE.WATER || nt.index === TILE.TREE || nt.index === TILE.ROCK) continue;
+          if (nt.index === TILE.WATER || isTreeTileIndex(nt.index) || isRockTileIndex(nt.index)) continue;
 
           const c = tileCenter(tileSize, n.tx, n.ty);
           const d = Phaser.Math.Distance.Between(x, y, c.x, c.y);
@@ -443,7 +465,7 @@ export function createTilemapWorld(params: {
           if (n.tx < 0 || n.ty < 0 || n.tx >= cols || n.ty >= rows) continue;
           const nt = layer.getTileAt(n.tx, n.ty);
           if (!nt) continue;
-          if (nt.index === TILE.WATER || nt.index === TILE.TREE || nt.index === TILE.ROCK) continue;
+          if (nt.index === TILE.WATER || isTreeTileIndex(nt.index) || isRockTileIndex(nt.index)) continue;
           const c = tileToWorldCenter(n.tx, n.ty);
           const d = Phaser.Math.Distance.Between(x, y, c.x, c.y);
           if (d < bestStandDist) {
@@ -476,7 +498,7 @@ export function createTilemapWorld(params: {
   const chopTreeAt = (tx: number, ty: number): number => {
     const tile = layer.getTileAt(tx, ty);
     if (!tile) return 0;
-    if (tile.index !== TILE.TREE) return 0;
+    if (!isTreeTileIndex(tile.index)) return 0;
 
     const v = hash2Seeded(tx, ty, seed);
     const replacement = v < 0.5 ? TILE.FOREST_A : TILE.FOREST_B;

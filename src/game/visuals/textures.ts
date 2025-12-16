@@ -266,10 +266,12 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.fillCircle(7.2, 7.1, 0.9);
   });
 
-  makeTexture('tileset32', 32 * 7, 32, (gfx) => {
-    // 7 tiles laid out horizontally, 32x32 each.
+  makeTexture('tileset32', 32 * 11, 32, (gfx) => {
+    // 11 tiles laid out horizontally, 32x32 each.
     // Index mapping (keep in sync with `tilemapWorld.ts`):
-    // 0 forest_a, 1 forest_b, 2 clearing, 3 path, 4 water, 5 tree, 6 rock
+    // 0 forest_a, 1 forest_b, 2 clearing, 3 path, 4 water,
+    // 5 tree_a, 6 tree_b, 7 tree_c,
+    // 8 rock_a, 9 rock_b, 10 rock_c
 
     const applyTileLighting = (ox: number) => {
       // Subtle, consistent top-left light and bottom-right shadow.
@@ -397,15 +399,13 @@ export function createProceduralTextures(scene: Phaser.Scene) {
       applyTileLighting(ox);
     };
 
-    const drawTree = (ox: number) => {
-
-      // Ground under the tree so the silhouette reads against any tile.
+    const drawTreeA = (ox: number) => {
+      // Round-canopy tree (oak-ish).
       gfx.fillStyle(0x0a1710, 1);
       gfx.fillRect(ox, 0, 32, 32);
       gfx.fillStyle(0x050e09, 0.22);
       gfx.fillCircle(ox + 18, 18, 10);
 
-      // Canopy + shadow.
       gfx.fillStyle(0x000000, 0.16);
       gfx.fillEllipse(ox + 18, 22, 18, 8);
 
@@ -418,7 +418,6 @@ export function createProceduralTextures(scene: Phaser.Scene) {
       gfx.fillStyle(0x22c55e, 0.22);
       gfx.fillCircle(ox + 12, 11, 5);
 
-      // Trunk.
       gfx.fillStyle(0x5b3416, 0.95);
       gfx.fillRoundedRect(ox + 14, 18, 4, 7, 2);
       gfx.fillStyle(0x92400e, 0.35);
@@ -432,15 +431,84 @@ export function createProceduralTextures(scene: Phaser.Scene) {
       applyTileLighting(ox);
     };
 
-    const drawRock = (ox: number) => {
+    const drawTreeB = (ox: number) => {
+      // Conifer / pine silhouette (taller, pointier).
+      gfx.fillStyle(0x0a1710, 1);
+      gfx.fillRect(ox, 0, 32, 32);
+      gfx.fillStyle(0x050e09, 0.22);
+      gfx.fillCircle(ox + 16, 20, 10);
 
-      // Ground behind rock.
+      gfx.fillStyle(0x000000, 0.16);
+      gfx.fillEllipse(ox + 16, 23, 16, 7);
+
+      // Layered triangles to read as branches.
+      gfx.fillStyle(0x14532d, 1);
+      gfx.fillTriangle(ox + 16, 6, ox + 7, 18, ox + 25, 18);
+      gfx.fillStyle(0x166534, 1);
+      gfx.fillTriangle(ox + 16, 10, ox + 6, 22, ox + 26, 22);
+      gfx.fillStyle(0x15803d, 1);
+      gfx.fillTriangle(ox + 16, 14, ox + 7, 26, ox + 25, 26);
+
+      gfx.fillStyle(0x22c55e, 0.18);
+      gfx.fillTriangle(ox + 15, 8, ox + 11, 14, ox + 19, 14);
+
+      // Trunk.
+      gfx.fillStyle(0x5b3416, 0.95);
+      gfx.fillRoundedRect(ox + 14, 20, 4, 7, 2);
+      gfx.fillStyle(0x92400e, 0.32);
+      gfx.fillRect(ox + 15, 21, 1, 5);
+      gfx.lineStyle(1, stroke, 0.55);
+      gfx.strokeRoundedRect(ox + 14, 20, 4, 7, 2);
+
+      gfx.lineStyle(2, stroke, 0.55);
+      gfx.strokeTriangle(ox + 16, 6, ox + 7, 18, ox + 25, 18);
+
+      applyTileLighting(ox);
+    };
+
+    const drawTreeC = (ox: number) => {
+      // Bushy / split-canopy tree (two-lobed).
+      gfx.fillStyle(0x0a1710, 1);
+      gfx.fillRect(ox, 0, 32, 32);
+      gfx.fillStyle(0x050e09, 0.22);
+      gfx.fillCircle(ox + 16, 18, 10);
+
+      gfx.fillStyle(0x000000, 0.15);
+      gfx.fillEllipse(ox + 16, 22, 17, 7);
+
+      gfx.fillStyle(0x14532d, 1);
+      gfx.fillCircle(ox + 12, 15, 10);
+      gfx.fillCircle(ox + 20, 15, 10);
+      gfx.fillStyle(0x166534, 1);
+      gfx.fillCircle(ox + 11, 14, 8);
+      gfx.fillCircle(ox + 21, 14, 8);
+      gfx.fillStyle(0x15803d, 1);
+      gfx.fillCircle(ox + 16, 17, 7);
+      gfx.fillStyle(0x22c55e, 0.22);
+      gfx.fillCircle(ox + 10, 11, 4);
+      gfx.fillCircle(ox + 22, 11, 4);
+
+      gfx.fillStyle(0x5b3416, 0.95);
+      gfx.fillRoundedRect(ox + 14, 18, 4, 8, 2);
+      gfx.fillStyle(0x92400e, 0.35);
+      gfx.fillRect(ox + 15, 20, 1, 5);
+      gfx.lineStyle(1, stroke, 0.55);
+      gfx.strokeRoundedRect(ox + 14, 18, 4, 8, 2);
+
+      gfx.lineStyle(2, stroke, 0.55);
+      gfx.strokeCircle(ox + 12, 15, 10);
+      gfx.strokeCircle(ox + 20, 15, 10);
+
+      applyTileLighting(ox);
+    };
+
+    const drawRockA = (ox: number) => {
+      // Rounded boulder.
       gfx.fillStyle(0x0a1710, 1);
       gfx.fillRect(ox, 0, 32, 32);
       gfx.fillStyle(0x050e09, 0.18);
       gfx.fillCircle(ox + 20, 20, 9);
 
-      // Rock body.
       gfx.fillStyle(0x23304d, 1);
       gfx.fillRoundedRect(ox + 6, 9, 20, 16, 7);
       gfx.fillStyle(0x30446c, 0.85);
@@ -448,7 +516,6 @@ export function createProceduralTextures(scene: Phaser.Scene) {
       gfx.fillStyle(0x3b5584, 0.35);
       gfx.fillRoundedRect(ox + 10, 16, 10, 4, 4);
 
-      // Moss/lichen.
       gfx.fillStyle(0x34d399, 0.18);
       gfx.fillCircle(ox + 10, 18, 4);
       gfx.fillStyle(0xe5e7eb, 0.12);
@@ -462,13 +529,84 @@ export function createProceduralTextures(scene: Phaser.Scene) {
       applyTileLighting(ox);
     };
 
+    const drawRockB = (ox: number) => {
+      // Jagged rock (more angular silhouette).
+      gfx.fillStyle(0x0a1710, 1);
+      gfx.fillRect(ox, 0, 32, 32);
+      gfx.fillStyle(0x050e09, 0.18);
+      gfx.fillCircle(ox + 18, 21, 9);
+
+      gfx.fillStyle(0x23304d, 1);
+      gfx.fillTriangle(ox + 7, 22, ox + 12, 9, ox + 18, 24);
+      gfx.fillTriangle(ox + 12, 9, ox + 26, 14, ox + 18, 24);
+      gfx.fillTriangle(ox + 7, 22, ox + 18, 24, ox + 23, 26);
+
+      gfx.fillStyle(0x30446c, 0.8);
+      gfx.fillTriangle(ox + 13, 12, ox + 22, 15, ox + 16, 22);
+      gfx.fillStyle(0x3b5584, 0.32);
+      gfx.fillRect(ox + 11, 20, 9, 3);
+
+      // Crack line.
+      gfx.lineStyle(2, 0x0b1220, 0.25);
+      gfx.beginPath();
+      gfx.moveTo(ox + 14, 12);
+      gfx.lineTo(ox + 16, 18);
+      gfx.lineTo(ox + 13, 23);
+      gfx.strokePath();
+
+      gfx.lineStyle(2, stroke, 0.65);
+      gfx.strokeTriangle(ox + 7, 22, ox + 12, 9, ox + 18, 24);
+      gfx.strokeTriangle(ox + 12, 9, ox + 26, 14, ox + 18, 24);
+      gfx.strokeTriangle(ox + 7, 22, ox + 18, 24, ox + 23, 26);
+
+      applyTileLighting(ox);
+    };
+
+    const drawRockC = (ox: number) => {
+      // Pebble cluster (reads as a different obstruction type).
+      gfx.fillStyle(0x0a1710, 1);
+      gfx.fillRect(ox, 0, 32, 32);
+      gfx.fillStyle(0x050e09, 0.16);
+      gfx.fillEllipse(ox + 18, 22, 18, 7);
+
+      const peb = (x: number, y: number, r: number, hi: boolean) => {
+        gfx.fillStyle(0x23304d, 1);
+        gfx.fillCircle(ox + x, y, r);
+        gfx.fillStyle(0x30446c, 0.75);
+        gfx.fillCircle(ox + x - 1, y - 1, Math.max(1.8, r * 0.55));
+        if (hi) {
+          gfx.fillStyle(0x3b5584, 0.22);
+          gfx.fillCircle(ox + x + 1, y + 1, Math.max(1.4, r * 0.4));
+        }
+        gfx.lineStyle(2, stroke, 0.55);
+        gfx.strokeCircle(ox + x, y, r);
+      };
+
+      peb(12, 19, 5.2, true);
+      peb(20, 20, 4.6, false);
+      peb(17, 14, 4.2, true);
+      peb(24, 23, 3.6, false);
+
+      // Tiny lichen specks.
+      gfx.fillStyle(0xe5e7eb, 0.1);
+      for (let i = 0; i < 5; i++) {
+        gfx.fillRect(ox + Phaser.Math.Between(10, 26), Phaser.Math.Between(12, 26), 1, 1);
+      }
+
+      applyTileLighting(ox);
+    };
+
     drawForest(0, 0x09140e, 0x0f2a1a, 0x163d26);
     drawForest(32, 0x0b1911, 0x12321f, 0x1b4a2e);
     drawClearing(64);
     drawPath(96);
     drawWater(128);
-    drawTree(160);
-    drawRock(192);
+    drawTreeA(160);
+    drawTreeB(192);
+    drawTreeC(224);
+    drawRockA(256);
+    drawRockB(288);
+    drawRockC(320);
   });
 
   makeTexture('label_bg', 128, 32, (gfx) => {
@@ -775,6 +913,89 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.lineStyle(2, stroke, 0.7);
     gfx.strokeTriangle(17, 11, 13, 20, 21, 20);
   });
+
+  const drawCampfireStage = (gfx: Phaser.GameObjects.Graphics, stage: 0 | 1 | 2 | 3, lit: boolean) => {
+    // Ground shadow.
+    gfx.fillStyle(0x0b1220, 0.25);
+    gfx.fillEllipse(17, 26, 22, 8);
+
+    if (stage === 0) {
+      // Blueprint ring + cross.
+      gfx.lineStyle(2, 0x38bdf8, 0.6);
+      gfx.strokeCircle(17, 18, 8);
+      gfx.beginPath();
+      gfx.moveTo(13, 18);
+      gfx.lineTo(21, 18);
+      gfx.moveTo(17, 14);
+      gfx.lineTo(17, 22);
+      gfx.strokePath();
+      return;
+    }
+
+    // Fire pit stones.
+    gfx.fillStyle(0x334155, stage === 1 ? 0.35 : 0.75);
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2;
+      const x = 17 + Math.cos(a) * 8;
+      const y = 18 + Math.sin(a) * 6;
+      gfx.fillCircle(x, y, 1.6);
+    }
+
+    // Logs.
+    const logAlpha = stage === 1 ? 0.35 : 0.95;
+    gfx.lineStyle(3, 0x7c2d12, logAlpha);
+    gfx.beginPath();
+    gfx.moveTo(12, 22);
+    gfx.lineTo(22, 16);
+    gfx.moveTo(12, 16);
+    gfx.lineTo(22, 22);
+    gfx.strokePath();
+
+    if (stage === 1) return;
+
+    // Coals.
+    gfx.fillStyle(0x111827, 0.55);
+    gfx.fillCircle(17, 19, 3.5);
+
+    if (stage === 2) {
+      // Unlit: a few faint embers.
+      gfx.fillStyle(0xf97316, 0.12);
+      gfx.fillCircle(16, 18.5, 1.2);
+      gfx.fillCircle(18, 20, 1);
+      return;
+    }
+
+    // Stage 3: finished fire (lit/out depends on fuel).
+    if (lit) {
+      gfx.fillStyle(0xf97316, 0.95);
+      gfx.fillTriangle(17, 11, 13, 20, 21, 20);
+      gfx.fillStyle(0xfbbf24, 0.9);
+      gfx.fillTriangle(17, 13, 15, 20, 19, 20);
+      gfx.fillStyle(0xffffff, 0.18);
+      gfx.fillCircle(16.4, 13.6, 1.1);
+
+      // Glow.
+      gfx.fillStyle(0xf97316, 0.12);
+      gfx.fillCircle(17, 18, 9);
+    } else {
+      // Out: a little smoke and darkened coals.
+      gfx.fillStyle(0x111827, 0.65);
+      gfx.fillCircle(17, 19, 4);
+      gfx.fillStyle(0xe5e7eb, 0.08);
+      gfx.fillCircle(19, 12, 2);
+      gfx.fillCircle(16, 10, 1.5);
+    }
+
+    gfx.lineStyle(2, stroke, 0.65);
+    gfx.strokeCircle(17, 18, 8);
+  };
+
+  makeTexture('campfire_s0', 34, 34, (gfx) => drawCampfireStage(gfx, 0, false));
+  makeTexture('campfire_s1', 34, 34, (gfx) => drawCampfireStage(gfx, 1, false));
+  makeTexture('campfire_s2', 34, 34, (gfx) => drawCampfireStage(gfx, 2, false));
+  // Stage 3 is the completed silhouette; lit/out are chosen dynamically.
+  makeTexture('campfire_lit', 34, 34, (gfx) => drawCampfireStage(gfx, 3, true));
+  makeTexture('campfire_out', 34, 34, (gfx) => drawCampfireStage(gfx, 3, false));
 
   makeTexture('build_flag', 34, 34, (gfx) => {
     buildBase(gfx);

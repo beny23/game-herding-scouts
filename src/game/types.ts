@@ -38,7 +38,7 @@ export type InteractableKind = 'hut';
 
 export type ResourceKind = 'wood' | 'water';
 
-export type TaskId = 'hutA' | 'hutB' | 'waterTank';
+export type TaskId = 'hutA' | 'hutB' | 'waterTank' | 'campfire';
 
 export type BuildTask = {
   id: TaskId;
