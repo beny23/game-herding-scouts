@@ -463,21 +463,85 @@ export class GameScene extends Phaser.Scene {
       if (dLeader <= interactableRange) return { kind: 'interactable', sprite: best };
     }
 
+    // Trees/water: select by the *tapped tile center* (sourceX/sourceY), then compute a nearby
+    // walkable stand point. This avoids picking a "wrong" tree due to stand-point proximity,
+    // and allows tapping directly on the resource tile.
+
+    const center = this.tileWorld.worldToTile(worldX, worldY);
+    const maxTiles = Math.max(1, Math.ceil(selectRadius / this.tileWorld.tileSize));
+
     // Trees
-    const tree = this.tileWorld.findNearestTreeTarget(worldX, worldY, selectRadius);
-    if (tree) {
-      const dLeader = Phaser.Math.Distance.Between(this.leader.x, this.leader.y, tree.x, tree.y);
-      if (dLeader <= treeRange) return { kind: 'tree', target: tree };
+    let bestTree: { tx: number; ty: number; d: number } | null = null;
+    for (let dy = -maxTiles; dy <= maxTiles; dy++) {
+      for (let dx = -maxTiles; dx <= maxTiles; dx++) {
+        const tx = center.tx + dx;
+        const ty = center.ty + dy;
+        if (tx < 0 || ty < 0 || tx >= this.tileWorld.cols || ty >= this.tileWorld.rows) continue;
+        const tile = this.tileWorld.layer.getTileAt(tx, ty);
+        if (!tile || !this.tileWorld.isTreeTileIndex(tile.index)) continue;
+        const src = this.tileWorld.tileToWorldCenter(tx, ty);
+        const d = Phaser.Math.Distance.Between(worldX, worldY, src.x, src.y);
+        if (d > selectRadius) continue;
+        if (!bestTree || d < bestTree.d) bestTree = { tx, ty, d };
+      }
+    }
+
+    if (bestTree) {
+      const treeTarget = this.makeAdjacentStandTarget(bestTree.tx, bestTree.ty, 'tree');
+      if (treeTarget) {
+        const dLeader = Phaser.Math.Distance.Between(this.leader.x, this.leader.y, treeTarget.x, treeTarget.y);
+        if (dLeader <= treeRange) return { kind: 'tree', target: treeTarget };
+      }
     }
 
     // Water
-    const water = this.tileWorld.findNearestWaterTarget(worldX, worldY, selectRadius);
-    if (water) {
-      const dLeader = Phaser.Math.Distance.Between(this.leader.x, this.leader.y, water.x, water.y);
-      if (dLeader <= waterRange) return { kind: 'water', target: water };
+    let bestWater: { tx: number; ty: number; d: number } | null = null;
+    for (let dy = -maxTiles; dy <= maxTiles; dy++) {
+      for (let dx = -maxTiles; dx <= maxTiles; dx++) {
+        const tx = center.tx + dx;
+        const ty = center.ty + dy;
+        if (tx < 0 || ty < 0 || tx >= this.tileWorld.cols || ty >= this.tileWorld.rows) continue;
+        const tile = this.tileWorld.layer.getTileAt(tx, ty);
+        if (!tile || !this.tileWorld.isWaterTileIndex(tile.index)) continue;
+        const src = this.tileWorld.tileToWorldCenter(tx, ty);
+        const d = Phaser.Math.Distance.Between(worldX, worldY, src.x, src.y);
+        if (d > selectRadius) continue;
+        if (!bestWater || d < bestWater.d) bestWater = { tx, ty, d };
+      }
+    }
+
+    if (bestWater) {
+      const waterTarget = this.makeAdjacentStandTarget(bestWater.tx, bestWater.ty, 'water');
+      if (waterTarget) {
+        const dLeader = Phaser.Math.Distance.Between(this.leader.x, this.leader.y, waterTarget.x, waterTarget.y);
+        if (dLeader <= waterRange) return { kind: 'water', target: waterTarget };
+      }
     }
 
     return null;
+  }
+
+  private makeAdjacentStandTarget(tx: number, ty: number, kind: 'tree' | 'water') {
+    const src = this.tileWorld.tileToWorldCenter(tx, ty);
+
+    // Choose an adjacent walkable tile to stand on (prefer the one closest to the leader).
+    let best: { x: number; y: number; d: number } | null = null;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const ntx = tx + dx;
+        const nty = ty + dy;
+        if (ntx < 0 || nty < 0 || ntx >= this.tileWorld.cols || nty >= this.tileWorld.rows) continue;
+        if (!this.tileWorld.isWalkable(ntx, nty)) continue;
+        const c = this.tileWorld.tileToWorldCenter(ntx, nty);
+        const d = Phaser.Math.Distance.Between(this.leader.x, this.leader.y, c.x, c.y);
+        if (!best || d < best.d) best = { x: c.x, y: c.y, d };
+      }
+    }
+
+    if (!best) return null;
+
+    return { kind, tx, ty, x: best.x, y: best.y, sourceX: src.x, sourceY: src.y };
   }
 
   private redrawVignette() {
