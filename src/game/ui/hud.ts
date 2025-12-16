@@ -4,8 +4,13 @@ import type { BuildTask, TaskId } from '../types';
 export type Hud = {
   checklistPanel: Phaser.GameObjects.Graphics;
   promptPanel: Phaser.GameObjects.Graphics;
+  controlsPanel: Phaser.GameObjects.Graphics;
+  helpButtonBg: Phaser.GameObjects.Rectangle;
+  helpButtonText: Phaser.GameObjects.Text;
   checklistText: Phaser.GameObjects.Text;
   promptText: Phaser.GameObjects.Text;
+  controlsText: Phaser.GameObjects.Text;
+  controlsVisible: boolean;
 };
 
 function getSafeArea(scene: Phaser.Scene) {
@@ -31,6 +36,29 @@ export function createHud(scene: Phaser.Scene): Hud {
 
   const checklistPanel = scene.add.graphics().setScrollFactor(0).setDepth(999);
   const promptPanel = scene.add.graphics().setScrollFactor(0).setDepth(999);
+  const controlsPanel = scene.add.graphics().setScrollFactor(0).setDepth(999);
+
+  const helpButtonSize = isCompact ? 18 : 22;
+  const helpButtonBg = scene.add
+    .rectangle(safe.x + safe.width - margin, safe.y + margin, helpButtonSize, helpButtonSize, 0x0b1220, 0.85)
+    .setOrigin(1, 0)
+    .setScrollFactor(0)
+    .setDepth(1002);
+
+  helpButtonBg.setStrokeStyle(2, 0x1f2937, 0.95);
+  helpButtonBg.setInteractive({ useHandCursor: true });
+
+  const helpButtonText = scene.add
+    .text(helpButtonBg.x - helpButtonSize / 2, helpButtonBg.y + helpButtonSize / 2, '?', {
+      fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
+      fontSize: isCompact ? '12px' : '14px',
+      color: '#f8fafc',
+      fontStyle: '700',
+      align: 'center',
+    })
+    .setOrigin(0.5, 0.5)
+    .setScrollFactor(0)
+    .setDepth(1003);
 
   const checklistText = scene.add
     .text(safe.x + margin, safe.y + margin, '', {
@@ -61,7 +89,40 @@ export function createHud(scene: Phaser.Scene): Hud {
   promptText.setStroke('#0b1220', strokeThickness);
   promptText.setShadow(1, 1, '#000000', 4, true, true);
 
-  return { checklistPanel, promptPanel, checklistText, promptText };
+  const controlsText = scene.add
+    .text(safe.x + safe.width - margin, safe.y + safe.height - margin, '', {
+      fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
+      fontSize,
+      color: '#f8fafc',
+      fontStyle: '600',
+      lineSpacing: isCompact ? 1 : 2,
+      align: 'right',
+    })
+    .setOrigin(1, 1)
+    .setScrollFactor(0)
+    .setDepth(1000);
+
+  controlsText.setStroke('#0b1220', strokeThickness);
+  controlsText.setShadow(1, 1, '#000000', 4, true, true);
+
+  const hud: Hud = {
+    checklistPanel,
+    promptPanel,
+    controlsPanel,
+    helpButtonBg,
+    helpButtonText,
+    checklistText,
+    promptText,
+    controlsText,
+    controlsVisible: true,
+  };
+
+  const toggle = () => setControlsVisible(hud, !hud.controlsVisible);
+  helpButtonBg.on('pointerdown', toggle);
+  helpButtonText.setInteractive({ useHandCursor: true });
+  helpButtonText.on('pointerdown', toggle);
+
+  return hud;
 }
 
 export function updateChecklistText(
@@ -69,7 +130,6 @@ export function updateChecklistText(
   tasks: Record<TaskId, BuildTask> | null,
   wood: number = 0,
   water: number = 0,
-  controlsHint?: string,
 ) {
   if (!tasks) {
     hud.checklistText.setText('Loading...');
@@ -109,11 +169,20 @@ export function updateChecklistText(
       const status = t.complete ? '✓' : `${Math.round(t.progress01 * 100)}%`;
       return `- ${t.label}: ${status}`;
     }),
-    '',
-    allComplete ? 'All tasks complete — you win!' : controlsHint ?? 'Controls: WASD / Arrows to move, E to interact, Q to whistle',
+    ...(allComplete ? ['', 'All tasks complete — you win!'] : []),
   ];
 
   hud.checklistText.setText(lines.join('\n'));
+}
+
+export function updateControlsText(hud: Hud, hint: string) {
+  hud.controlsText.setText(hint);
+}
+
+export function setControlsVisible(hud: Hud, visible: boolean) {
+  hud.controlsVisible = visible;
+  hud.controlsPanel.setVisible(visible);
+  hud.controlsText.setVisible(visible);
 }
 
 export function updatePromptText(hud: Hud, prompt: string) {
@@ -130,6 +199,14 @@ export function updateHudPanels(hud: Hud) {
   // Re-anchor HUD text into the visible safe area each frame (important for full-screen cover scaling).
   hud.checklistText.setPosition(safe.x + pad, safe.y + pad);
   hud.promptText.setPosition(safe.x + pad, safe.y + safe.height - pad);
+  hud.controlsText.setPosition(safe.x + safe.width - pad, safe.y + safe.height - pad);
+
+  // Keep the help button in the bottom-right corner.
+  hud.helpButtonBg.setPosition(safe.x + safe.width - pad, safe.y + pad);
+  hud.helpButtonText.setPosition(
+    hud.helpButtonBg.x - hud.helpButtonBg.width / 2,
+    hud.helpButtonBg.y + hud.helpButtonBg.height / 2,
+  );
 
   const x = hud.checklistText.x;
   const y = hud.checklistText.y;
@@ -142,14 +219,27 @@ export function updateHudPanels(hud: Hud) {
   hud.checklistPanel.strokeRoundedRect(x - pad, y - pad, w, h, isCompact ? 6 : 10);
 
   hud.promptPanel.clear();
-  if (!hud.promptText.text) return;
+  if (hud.promptText.text) {
+    const pw = Math.min(maxW, Math.max(isCompact ? 160 : 260, hud.promptText.width + pad * 2));
+    const ph = hud.promptText.height + pad * 2;
+    const px = hud.promptText.x;
+    const pyTop = hud.promptText.y - hud.promptText.height;
+    hud.promptPanel.fillStyle(0x0b1220, 0.8);
+    hud.promptPanel.lineStyle(2, 0x1f2937, 0.95);
+    hud.promptPanel.fillRoundedRect(px - pad, pyTop - pad, pw, ph, isCompact ? 6 : 10);
+    hud.promptPanel.strokeRoundedRect(px - pad, pyTop - pad, pw, ph, isCompact ? 6 : 10);
+  }
 
-  const pw = Math.min(maxW, Math.max(isCompact ? 160 : 260, hud.promptText.width + pad * 2));
-  const ph = hud.promptText.height + pad * 2;
-  const px = hud.promptText.x;
-  const pyTop = hud.promptText.y - hud.promptText.height;
-  hud.promptPanel.fillStyle(0x0b1220, 0.8);
-  hud.promptPanel.lineStyle(2, 0x1f2937, 0.95);
-  hud.promptPanel.fillRoundedRect(px - pad, pyTop - pad, pw, ph, isCompact ? 6 : 10);
-  hud.promptPanel.strokeRoundedRect(px - pad, pyTop - pad, pw, ph, isCompact ? 6 : 10);
+  hud.controlsPanel.clear();
+  if (!hud.controlsVisible || !hud.controlsText.text) return;
+
+  const cMaxW = Math.max(40, safe.width - 12);
+  const cw = Math.min(cMaxW, Math.max(isCompact ? 140 : 220, hud.controlsText.width + pad * 2));
+  const ch = hud.controlsText.height + pad * 2;
+  const cxRight = hud.controlsText.x;
+  const cyTop = hud.controlsText.y - hud.controlsText.height;
+  hud.controlsPanel.fillStyle(0x0b1220, 0.8);
+  hud.controlsPanel.lineStyle(2, 0x1f2937, 0.95);
+  hud.controlsPanel.fillRoundedRect(cxRight - cw + pad, cyTop - pad, cw, ch, isCompact ? 6 : 10);
+  hud.controlsPanel.strokeRoundedRect(cxRight - cw + pad, cyTop - pad, cw, ch, isCompact ? 6 : 10);
 }

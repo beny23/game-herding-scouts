@@ -2,7 +2,15 @@ import Phaser from 'phaser';
 
 import { Scout } from '../game/Scout';
 import type { BuildTask, TaskId } from '../game/types';
-import { createHud, updateChecklistText, updateHudPanels, updatePromptText, type Hud } from '../game/ui/hud';
+import {
+  createHud,
+  setControlsVisible,
+  updateChecklistText,
+  updateControlsText,
+  updateHudPanels,
+  updatePromptText,
+  type Hud,
+} from '../game/ui/hud';
 import { handleInteract } from '../game/systems/interact';
 // (No query helpers needed here; we do cone-based selection locally.)
 import { updateScoutAI } from '../game/systems/scoutAi';
@@ -172,15 +180,18 @@ export class GameScene extends Phaser.Scene {
     this.highlightRing = createHighlightRing(this);
 
     this.hud = createHud(this);
-    updateChecklistText(
+    updateChecklistText(this.hud, this.tasks, this.woodStockpile, this.waterStockpile);
+    updateControlsText(
       this.hud,
-      this.tasks,
-      this.woodStockpile,
-      this.waterStockpile,
       this.touchMode
-        ? 'Controls: Tap to move/interact, two-finger tap to whistle'
-        : 'Controls: WASD / Arrows to move, E to interact, Q to whistle',
+        ? 'Controls\nTap: move / interact\nTwo-finger tap: whistle'
+        : 'Controls\nWASD / Arrows: move\nE: interact\nQ: whistle',
     );
+    // Toggle controls HUD via '?' (Shift+/) on keyboard.
+    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
+      if (ev.key !== '?') return;
+      setControlsVisible(this.hud, !this.hud.controlsVisible);
+    });
     updatePromptText(this.hud, '');
     updateHudPanels(this.hud);
 
@@ -308,9 +319,6 @@ export class GameScene extends Phaser.Scene {
       this.tasks,
       this.woodStockpile,
       this.waterStockpile,
-      this.touchMode
-        ? 'Controls: Tap to move/interact, two-finger tap to whistle'
-        : 'Controls: WASD / Arrows to move, E to interact, Q to whistle',
     );
     this.updatePromptAndHighlight();
     updateHudPanels(this.hud);
