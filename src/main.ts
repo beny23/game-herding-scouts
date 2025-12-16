@@ -42,6 +42,19 @@ function applyCanvasScale() {
   // Note: on aspect ratios different from BASE_WIDTH:BASE_HEIGHT, this will crop.
   const zoom = Math.max(parentW / BASE_WIDTH, parentH / BASE_HEIGHT);
 
+  // Visible area in game coordinates (because the canvas is cropped by CSS when using "cover" scaling).
+  const viewW = parentW / zoom;
+  const viewH = parentH / zoom;
+  const cropX = Math.max(0, (BASE_WIDTH - viewW) / 2);
+  const cropY = Math.max(0, (BASE_HEIGHT - viewH) / 2);
+
+  game.registry.set('safeArea', {
+    x: cropX,
+    y: cropY,
+    width: viewW,
+    height: viewH,
+  });
+
   game.canvas.style.width = `${BASE_WIDTH * zoom}px`;
   game.canvas.style.height = `${BASE_HEIGHT * zoom}px`;
 }

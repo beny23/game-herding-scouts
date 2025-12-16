@@ -8,8 +8,23 @@ export type Hud = {
   promptText: Phaser.GameObjects.Text;
 };
 
+function getSafeArea(scene: Phaser.Scene) {
+  const raw = scene.game.registry.get('safeArea') as any;
+  if (!raw || typeof raw !== 'object') {
+    return { x: 0, y: 0, width: scene.scale.width, height: scene.scale.height };
+  }
+
+  const x = typeof raw.x === 'number' ? raw.x : 0;
+  const y = typeof raw.y === 'number' ? raw.y : 0;
+  const width = typeof raw.width === 'number' ? raw.width : scene.scale.width;
+  const height = typeof raw.height === 'number' ? raw.height : scene.scale.height;
+
+  return { x, y, width, height };
+}
+
 export function createHud(scene: Phaser.Scene): Hud {
-  const isCompact = scene.scale.height <= 300;
+  const safe = getSafeArea(scene);
+  const isCompact = safe.height <= 300;
   const fontSize = isCompact ? '9px' : '12px';
   const margin = isCompact ? 4 : 6;
   const strokeThickness = isCompact ? 1 : 2;
@@ -18,7 +33,7 @@ export function createHud(scene: Phaser.Scene): Hud {
   const promptPanel = scene.add.graphics().setScrollFactor(0).setDepth(999);
 
   const checklistText = scene.add
-    .text(margin, margin, '', {
+    .text(safe.x + margin, safe.y + margin, '', {
       fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
       fontSize,
       color: '#f8fafc',
@@ -32,7 +47,7 @@ export function createHud(scene: Phaser.Scene): Hud {
   checklistText.setShadow(1, 1, '#000000', 4, true, true);
 
   const promptText = scene.add
-    .text(margin, scene.scale.height - margin, '', {
+    .text(safe.x + margin, safe.y + safe.height - margin, '', {
       fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
       fontSize,
       color: '#f8fafc',
@@ -106,12 +121,19 @@ export function updatePromptText(hud: Hud, prompt: string) {
 }
 
 export function updateHudPanels(hud: Hud) {
+  const safe = getSafeArea(hud.checklistText.scene);
+
   hud.checklistPanel.clear();
-  const isCompact = hud.checklistText.scene.scale.height <= 300;
+  const isCompact = safe.height <= 300;
   const pad = isCompact ? 4 : 6;
+
+  // Re-anchor HUD text into the visible safe area each frame (important for full-screen cover scaling).
+  hud.checklistText.setPosition(safe.x + pad, safe.y + pad);
+  hud.promptText.setPosition(safe.x + pad, safe.y + safe.height - pad);
+
   const x = hud.checklistText.x;
   const y = hud.checklistText.y;
-  const maxW = Math.max(40, hud.checklistText.scene.scale.width - 12);
+  const maxW = Math.max(40, safe.width - 12);
   const w = Math.min(maxW, Math.max(isCompact ? 108 : 180, hud.checklistText.width + pad * 2));
   const h = hud.checklistText.height + pad * 2;
   hud.checklistPanel.fillStyle(0x0b1220, 0.8);
