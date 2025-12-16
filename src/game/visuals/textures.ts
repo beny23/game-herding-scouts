@@ -266,12 +266,16 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.fillCircle(7.2, 7.1, 0.9);
   });
 
-  makeTexture('tileset32', 32 * 11, 32, (gfx) => {
-    // 11 tiles laid out horizontally, 32x32 each.
+  makeTexture('tileset32', 32 * 19, 32, (gfx) => {
+    // 19 tiles laid out horizontally, 32x32 each.
     // Index mapping (keep in sync with `tilemapWorld.ts`):
-    // 0 forest_a, 1 forest_b, 2 clearing, 3 path, 4 water,
-    // 5 tree_a, 6 tree_b, 7 tree_c,
-    // 8 rock_a, 9 rock_b, 10 rock_c
+    // 0 forest_a0, 1 forest_a1, 2 forest_b0, 3 forest_b1,
+    // 4 clearing0, 5 clearing1,
+    // 6 path_center, 7 path_edge,
+    // 8 shore,
+    // 9 water0, 10 water1, 11 water2, 12 water3,
+    // 13 tree_a, 14 tree_b, 15 tree_c,
+    // 16 rock_a, 17 rock_b, 18 rock_c
 
     const applyTileLighting = (ox: number) => {
       // Subtle, consistent top-left light and bottom-right shadow.
@@ -291,7 +295,7 @@ export function createProceduralTextures(scene: Phaser.Scene) {
       gfx.fillRect(ox, 31, 32, 1);
     };
 
-    const drawForest = (ox: number, base: number, foliageA: number, foliageB: number) => {
+    const drawForest = (ox: number, base: number, foliageA: number, foliageB: number, accent: number) => {
       gfx.fillStyle(base, 1);
       gfx.fillRect(ox, 0, 32, 32);
 
@@ -312,15 +316,13 @@ export function createProceduralTextures(scene: Phaser.Scene) {
       }
 
       // Tiny accents (flowers / fireflies).
-      gfx.fillStyle(0xfbbf24, 0.14);
-      for (let i = 0; i < 4; i++) {
-        gfx.fillRect(ox + Phaser.Math.Between(2, 29), Phaser.Math.Between(2, 29), 1, 1);
-      }
+      gfx.fillStyle(accent, 0.13);
+      for (let i = 0; i < 4; i++) gfx.fillRect(ox + Phaser.Math.Between(2, 29), Phaser.Math.Between(2, 29), 1, 1);
 
       applyTileLighting(ox);
     };
 
-    const drawClearing = (ox: number) => {
+    const drawClearing = (ox: number, variant: 0 | 1) => {
       gfx.fillStyle(0x2a2f1d, 1);
       gfx.fillRect(ox, 0, 32, 32);
 
@@ -336,15 +338,22 @@ export function createProceduralTextures(scene: Phaser.Scene) {
       }
 
       // Dirt patches.
-      gfx.fillStyle(0x3f1d0b, 0.12);
-      for (let i = 0; i < 8; i++) {
-        gfx.fillCircle(ox + Phaser.Math.Between(4, 28), Phaser.Math.Between(4, 28), Phaser.Math.Between(2, 5));
+      gfx.fillStyle(0x3f1d0b, variant === 0 ? 0.12 : 0.16);
+      const n = variant === 0 ? 8 : 12;
+      for (let i = 0; i < n; i++) {
+        gfx.fillCircle(ox + Phaser.Math.Between(4, 28), Phaser.Math.Between(4, 28), Phaser.Math.Between(2, variant === 0 ? 5 : 6));
+      }
+
+      // Small stones (variant 1 reads a bit more "used").
+      if (variant === 1) {
+        gfx.fillStyle(0xe5e7eb, 0.18);
+        for (let i = 0; i < 10; i++) gfx.fillRect(ox + Phaser.Math.Between(3, 29), Phaser.Math.Between(3, 29), 1, 1);
       }
 
       applyTileLighting(ox);
     };
 
-    const drawPath = (ox: number) => {
+    const drawPath = (ox: number, kind: 'center' | 'edge') => {
       gfx.fillStyle(0x0a1710, 1);
       gfx.fillRect(ox, 0, 32, 32);
 
@@ -353,9 +362,16 @@ export function createProceduralTextures(scene: Phaser.Scene) {
       gfx.fillRoundedRect(ox + 0, 8, 32, 16, 9);
 
       // Darker edges to read as a worn groove.
-      gfx.fillStyle(0x2a1b10, 0.55);
+      gfx.fillStyle(0x2a1b10, kind === 'center' ? 0.55 : 0.68);
       gfx.fillRoundedRect(ox + 0, 8, 32, 4, 9);
       gfx.fillRoundedRect(ox + 0, 20, 32, 4, 9);
+
+      if (kind === 'edge') {
+        // Slight grass creep-in at the edges so borders read intentional.
+        gfx.fillStyle(0x14532d, 0.28);
+        gfx.fillRoundedRect(ox + 0, 6, 32, 4, 9);
+        gfx.fillRoundedRect(ox + 0, 22, 32, 4, 9);
+      }
 
       // Pebbles.
       gfx.fillStyle(0xe5e7eb, 0.28);
@@ -366,7 +382,31 @@ export function createProceduralTextures(scene: Phaser.Scene) {
       applyTileLighting(ox);
     };
 
-    const drawWater = (ox: number) => {
+    const drawShore = (ox: number) => {
+      // Wet bank / muddy shoreline tile (orientation-agnostic).
+      gfx.fillStyle(0x0a1710, 1);
+      gfx.fillRect(ox, 0, 32, 32);
+
+      // Damp gradient.
+      gfx.fillStyle(0x0b2942, 0.14);
+      gfx.fillRect(ox, 0, 32, 12);
+      gfx.fillStyle(0x0b2942, 0.08);
+      gfx.fillRect(ox, 12, 32, 10);
+
+      // Mud patches + a couple of pebbles.
+      gfx.fillStyle(0x3b2a1a, 0.12);
+      for (let i = 0; i < 6; i++) gfx.fillCircle(ox + Phaser.Math.Between(4, 28), Phaser.Math.Between(6, 28), Phaser.Math.Between(2, 5));
+      gfx.fillStyle(0xe5e7eb, 0.18);
+      for (let i = 0; i < 6; i++) gfx.fillRect(ox + Phaser.Math.Between(4, 28), Phaser.Math.Between(6, 28), 1, 1);
+
+      // Soft foam flecks.
+      gfx.fillStyle(0x38bdf8, 0.14);
+      for (let i = 0; i < 6; i++) gfx.fillRect(ox + Phaser.Math.Between(2, 29), Phaser.Math.Between(2, 14), 1, 1);
+
+      applyTileLighting(ox);
+    };
+
+    const drawWaterFrame = (ox: number, frame: 0 | 1 | 2 | 3) => {
       gfx.fillStyle(0x0b2942, 1);
       gfx.fillRect(ox, 0, 32, 32);
 
@@ -376,23 +416,27 @@ export function createProceduralTextures(scene: Phaser.Scene) {
       gfx.fillStyle(0x07263d, 0.35);
       gfx.fillRect(ox, 22, 32, 10);
 
-      // Soft swells.
+      // Soft swells (fixed positions, slightly phase-shifted per frame).
       gfx.fillStyle(0x1d4ed8, 0.12);
-      for (let i = 0; i < 6; i++) {
-        gfx.fillEllipse(
-          ox + Phaser.Math.Between(2, 30),
-          Phaser.Math.Between(2, 30),
-          Phaser.Math.Between(12, 18),
-          Phaser.Math.Between(4, 7),
-        );
+      const swell = [
+        { x: 9, y: 10, w: 16, h: 6 },
+        { x: 22, y: 14, w: 14, h: 5 },
+        { x: 14, y: 22, w: 18, h: 6 },
+        { x: 6, y: 25, w: 14, h: 5 },
+      ];
+      for (const s of swell) {
+        const wob = Math.sin((s.y + frame * 3) * 0.35) * 1.4;
+        gfx.fillEllipse(ox + s.x + wob, s.y + Math.cos((s.x + frame * 2) * 0.4) * 1.0, s.w, s.h);
       }
 
-      // Wave highlights.
+      // Wave highlights (animated by phase).
       gfx.lineStyle(2, 0x38bdf8, 0.18);
+      const phase = frame * 0.9;
       for (let y = 7; y <= 27; y += 7) {
+        const wob = Math.sin(y * 0.35 + phase) * 1.6;
         gfx.beginPath();
-        gfx.moveTo(ox + 2, y);
-        gfx.lineTo(ox + 30, y + Phaser.Math.Between(-1, 1));
+        gfx.moveTo(ox + 2, y + wob);
+        gfx.lineTo(ox + 30, y - wob);
         gfx.strokePath();
       }
 
@@ -596,17 +640,36 @@ export function createProceduralTextures(scene: Phaser.Scene) {
       applyTileLighting(ox);
     };
 
-    drawForest(0, 0x09140e, 0x0f2a1a, 0x163d26);
-    drawForest(32, 0x0b1911, 0x12321f, 0x1b4a2e);
-    drawClearing(64);
-    drawPath(96);
-    drawWater(128);
-    drawTreeA(160);
-    drawTreeB(192);
-    drawTreeC(224);
-    drawRockA(256);
-    drawRockB(288);
-    drawRockC(320);
+    // Forest variants.
+    drawForest(0, 0x09140e, 0x0f2a1a, 0x163d26, 0xfbbf24);
+    drawForest(32, 0x0a1510, 0x112d1c, 0x1a452b, 0xa78bfa);
+    drawForest(64, 0x0b1911, 0x12321f, 0x1b4a2e, 0xfbbf24);
+    drawForest(96, 0x0c1b13, 0x153724, 0x1f5534, 0x60a5fa);
+
+    // Clearing variants.
+    drawClearing(128, 0);
+    drawClearing(160, 1);
+
+    // Path tiles.
+    drawPath(192, 'center');
+    drawPath(224, 'edge');
+
+    // Shore + animated water frames.
+    drawShore(256);
+    drawWaterFrame(288, 0);
+    drawWaterFrame(320, 1);
+    drawWaterFrame(352, 2);
+    drawWaterFrame(384, 3);
+
+    // Trees.
+    drawTreeA(416);
+    drawTreeB(448);
+    drawTreeC(480);
+
+    // Rocks.
+    drawRockA(512);
+    drawRockB(544);
+    drawRockC(576);
   });
 
   makeTexture('label_bg', 128, 32, (gfx) => {
@@ -641,6 +704,12 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.fillCircle(12.9, 16.9, 0.45);
     gfx.fillCircle(17.9, 16.9, 0.45);
 
+    // Facing cue (tiny highlight "nose" on the right).
+    gfx.fillStyle(0xffffff, 0.14);
+    gfx.fillCircle(23.3, 18.1, 2.0);
+    gfx.fillStyle(0xffffff, 0.12);
+    gfx.fillCircle(24.2, 17.3, 1.1);
+
     // Hat with clearer silhouette
     gfx.fillStyle(0x1f2937, 1);
     gfx.fillTriangle(10, 11, 22, 11, 16, 4);
@@ -667,8 +736,14 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.strokePath();
   });
 
-  makeTexture('scout', 28, 28, (gfx) => {
-    shadedCircle(gfx, 14, 15, 9, 0x22c55e, 0x16a34a, 0x86efac);
+  const drawScout = (
+    gfx: Phaser.GameObjects.Graphics,
+    bodyA: number,
+    bodyB: number,
+    bodyHi: number,
+    stripe: number,
+  ) => {
+    shadedCircle(gfx, 14, 15, 9, bodyA, bodyB, bodyHi);
     gfx.fillStyle(0x111827, 0.32);
     gfx.fillRoundedRect(9.5, 21.5, 3.8, 2.6, 1);
     gfx.fillRoundedRect(15.0, 21.5, 3.8, 2.6, 1);
@@ -681,20 +756,77 @@ export function createProceduralTextures(scene: Phaser.Scene) {
     gfx.fillCircle(11.3, 13.9, 0.35);
     gfx.fillCircle(15.2, 13.9, 0.35);
 
+    // Facing cue (tiny visor highlight on the right).
+    gfx.fillStyle(0xffffff, 0.14);
+    gfx.fillCircle(21.1, 15.2, 1.9);
+
     // Bandana stripe
-    gfx.fillStyle(0x14532d, 1);
+    gfx.fillStyle(stripe, 1);
     gfx.fillRoundedRect(7, 9, 14, 5, 3);
     gfx.fillStyle(0xe5e7eb, 0.06);
     gfx.fillRoundedRect(8, 10, 12, 2, 2);
     strokeRoundedRect(gfx, 7, 9, 14, 5, 3);
 
     // Small backpack
-    gfx.fillStyle(0x16a34a, 1);
+    gfx.fillStyle(0x1f2937, 0.8);
     gfx.fillRoundedRect(3, 13, 6, 9, 3);
-    gfx.fillStyle(0x22c55e, 0.75);
+    gfx.fillStyle(0xffffff, 0.06);
     gfx.fillRoundedRect(4, 14, 4, 2, 2);
     gfx.lineStyle(1, stroke, 0.8);
     gfx.strokeRoundedRect(3, 13, 6, 9, 3);
+  };
+
+  // Scout variants (same shape, subtle color accents).
+  makeTexture('scout_a', 28, 28, (gfx) => drawScout(gfx, 0x22c55e, 0x16a34a, 0x86efac, 0x14532d));
+  makeTexture('scout_b', 28, 28, (gfx) => drawScout(gfx, 0x38bdf8, 0x0ea5e9, 0x93c5fd, 0x1f2937));
+  makeTexture('scout_c', 28, 28, (gfx) => drawScout(gfx, 0xa78bfa, 0x8b5cf6, 0xddd6fe, 0x4c1d95));
+
+  // Back-compat default.
+  makeTexture('scout', 28, 28, (gfx) => drawScout(gfx, 0x22c55e, 0x16a34a, 0x86efac, 0x14532d));
+
+  // Micro-props (small decorative sprites).
+  makeTexture('prop_grass', 16, 16, (gfx) => {
+    gfx.fillStyle(0x14532d, 0.9);
+    gfx.fillTriangle(8, 15, 6, 8, 10, 15);
+    gfx.fillTriangle(8, 15, 3, 10, 7, 15);
+    gfx.fillTriangle(8, 15, 9, 9, 13, 15);
+    gfx.fillStyle(0x22c55e, 0.18);
+    gfx.fillTriangle(8, 15, 7, 10, 9, 15);
+  });
+
+  makeTexture('prop_flower', 16, 16, (gfx) => {
+    gfx.fillStyle(0x14532d, 0.75);
+    gfx.fillRect(7.5, 7, 1, 7);
+    gfx.fillStyle(0xfbbf24, 0.9);
+    gfx.fillCircle(8, 6.2, 2.2);
+    gfx.fillStyle(0xffffff, 0.35);
+    gfx.fillCircle(7.2, 5.5, 0.8);
+  });
+
+  makeTexture('prop_pebble', 16, 16, (gfx) => {
+    gfx.fillStyle(0x0b1220, 0.18);
+    gfx.fillEllipse(9, 12, 10, 4);
+    gfx.fillStyle(0x334155, 0.9);
+    gfx.fillCircle(7, 10, 2.2);
+    gfx.fillCircle(11, 11, 1.8);
+    gfx.fillStyle(0xe5e7eb, 0.12);
+    gfx.fillCircle(6.2, 9.3, 0.8);
+  });
+
+  // Resource-action particles.
+  makeTexture('chip', 12, 12, (gfx) => {
+    gfx.fillStyle(0xb45309, 0.9);
+    gfx.fillTriangle(6, 2, 2, 10, 10, 9);
+    gfx.fillStyle(0xfbbf24, 0.22);
+    gfx.fillTriangle(6.5, 3, 4, 9, 9, 8);
+  });
+
+  makeTexture('droplet', 12, 12, (gfx) => {
+    gfx.fillStyle(0x38bdf8, 0.9);
+    gfx.fillCircle(6, 7, 3);
+    gfx.fillTriangle(6, 1.5, 3.7, 6, 8.3, 6);
+    gfx.fillStyle(0xffffff, 0.14);
+    gfx.fillCircle(5, 6, 1);
   });
 
   makeTexture('resource', 32, 32, (gfx) => {

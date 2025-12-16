@@ -20,10 +20,12 @@ type UpdateScoutParams = {
   time: number;
   delta: number;
   workEmitter: Phaser.GameObjects.Particles.ParticleEmitter;
+  woodChipEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
+  waterDropEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
 };
 
 export function updateScoutAI(params: UpdateScoutParams) {
-  const { scout, leader, tasks, tileWorld, woodPile, resources, time, delta, workEmitter } = params;
+  const { scout, leader, tasks, tileWorld, woodPile, resources, time, delta, workEmitter, woodChipEmitter, waterDropEmitter } = params;
   const speed = 200;
   const arriveDist = 30;
 
@@ -132,6 +134,7 @@ export function updateScoutAI(params: UpdateScoutParams) {
           const ox = Phaser.Math.Between(-10, 10);
           const oy = Phaser.Math.Between(-10, 10);
           workEmitter.emitParticleAt(scout.state.target.sourceX + ox, scout.state.target.sourceY + oy, 1);
+          woodChipEmitter?.emitParticleAt(scout.state.target.sourceX + ox, scout.state.target.sourceY + oy, 1);
         }
         return;
       }
@@ -148,6 +151,7 @@ export function updateScoutAI(params: UpdateScoutParams) {
           const ox = Phaser.Math.Between(-10, 10);
           const oy = Phaser.Math.Between(-10, 10);
           workEmitter.emitParticleAt(scout.state.target.sourceX + ox, scout.state.target.sourceY + oy, 1);
+          waterDropEmitter?.emitParticleAt(scout.state.target.sourceX + ox, scout.state.target.sourceY + oy, 1);
         }
         return;
       }

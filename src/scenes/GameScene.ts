@@ -47,7 +47,21 @@ export class GameScene extends Phaser.Scene {
 
   private highlightRing!: Phaser.GameObjects.Image;
   private workEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private woodChipEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private waterDropEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
   private buildProgressGfx!: Phaser.GameObjects.Graphics;
+
+  private waterAnimMs = 0;
+  private waterFrame = 0;
+
+  private decorProps!: Phaser.GameObjects.Group;
+
+  private worldTint!: Phaser.GameObjects.Rectangle;
+  private vignetteGfx!: Phaser.GameObjects.Graphics;
+  private campfireLightGfx!: Phaser.GameObjects.Graphics;
+
+  private lastWoodStockpile = 0;
+  private lastWaterStockpile = 0;
 
   create() {
     createProceduralTextures(this);
@@ -65,6 +79,9 @@ export class GameScene extends Phaser.Scene {
 
     this.interactables = this.add.group();
 
+    this.decorProps = this.add.group();
+    this.spawnDecorProps();
+
     this.workEmitter = this.add.particles(0, 0, 'spark', {
       lifespan: { min: 300, max: 550 },
       speed: { min: 14, max: 52 },
@@ -75,6 +92,29 @@ export class GameScene extends Phaser.Scene {
       blendMode: 'ADD',
     });
     this.workEmitter.setDepth(50);
+
+    this.woodChipEmitter = this.add.particles(0, 0, 'chip', {
+      lifespan: { min: 260, max: 520 },
+      speed: { min: 18, max: 70 },
+      gravityY: 40,
+      rotate: { min: -120, max: 120 },
+      scale: { start: 0.9, end: 0 },
+      alpha: { start: 0.9, end: 0 },
+      quantity: 0,
+    });
+    this.woodChipEmitter.setDepth(51);
+
+    this.waterDropEmitter = this.add.particles(0, 0, 'droplet', {
+      lifespan: { min: 260, max: 520 },
+      speed: { min: 14, max: 54 },
+      gravityY: 60,
+      rotate: { min: -80, max: 80 },
+      scale: { start: 0.9, end: 0 },
+      alpha: { start: 0.8, end: 0 },
+      quantity: 0,
+      blendMode: 'ADD',
+    });
+    this.waterDropEmitter.setDepth(51);
 
     this.buildProgressGfx = this.add.graphics();
     this.buildProgressGfx.setDepth(60);
@@ -96,6 +136,11 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.leader, this.tileWorld.layer);
 
     this.scouts = spawnScouts({ scene: this, positions: this.tileWorld.scoutSpawns });
+    // Mixed scout variants for readability.
+    for (let i = 0; i < this.scouts.length; i++) {
+      const key = i % 3 === 0 ? 'scout_a' : i % 3 === 1 ? 'scout_b' : 'scout_c';
+      this.scouts[i]!.sprite.setTexture(key);
+    }
 
     for (const scout of this.scouts) {
       scout.sprite.setMaxVelocity(220 * worldScale, 220 * worldScale);
@@ -167,14 +212,41 @@ export class GameScene extends Phaser.Scene {
         forced,
       });
     });
+
+    // Lighting pass (drawn above the world, below HUD).
+    this.worldTint = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x0b1220, 0.12).setOrigin(0, 0);
+    this.worldTint.setScrollFactor(0);
+    this.worldTint.setDepth(200);
+
+    this.campfireLightGfx = this.add.graphics();
+    this.campfireLightGfx.setDepth(210);
+    this.campfireLightGfx.setBlendMode(Phaser.BlendModes.ADD);
+
+    this.vignetteGfx = this.add.graphics();
+    this.vignetteGfx.setScrollFactor(0);
+    this.vignetteGfx.setDepth(220);
+    this.redrawVignette();
+
+    this.scale.on('resize', () => {
+      this.worldTint.setSize(this.scale.width, this.scale.height);
+      this.redrawVignette();
+    });
+
+    this.lastWoodStockpile = this.woodStockpile;
+    this.lastWaterStockpile = this.waterStockpile;
   }
 
   update(time: number, delta: number) {
+    this.updateWaterAnimation(delta);
+    this.updateLighting(time);
+
     updateLeaderMovement({ leader: this.leader, cursors: this.cursors, keys: this.keys, speed: 260 * (this.tileWorld.tileSize / 32) });
 
     const body = this.leader.body as Phaser.Physics.Arcade.Body;
     if (body && (Math.abs(body.velocity.x) > 1 || Math.abs(body.velocity.y) > 1)) {
       this.leaderFacing.set(body.velocity.x, body.velocity.y).normalize();
+      // Rotate leader so the facing cue points along motion.
+      this.leader.setRotation(Math.atan2(body.velocity.y, body.velocity.x));
     }
 
     updateBobbing(this.leader, time);
@@ -217,7 +289,14 @@ export class GameScene extends Phaser.Scene {
         time,
         delta,
         workEmitter: this.workEmitter,
+        woodChipEmitter: this.woodChipEmitter,
+        waterDropEmitter: this.waterDropEmitter,
       });
+
+      const sb = scout.sprite.body as Phaser.Physics.Arcade.Body;
+      if (sb && (Math.abs(sb.velocity.x) > 1 || Math.abs(sb.velocity.y) > 1)) {
+        scout.sprite.setRotation(Math.atan2(sb.velocity.y, sb.velocity.x));
+      }
       updateBobbing(scout.sprite, time);
       updateShadow(scout.sprite, 11);
       updateDepth(scout.sprite);
@@ -225,12 +304,137 @@ export class GameScene extends Phaser.Scene {
 
     this.updateCampfireBurn(delta);
 
+    this.updateStockpileFeedback();
+
     this.updateProgressVisuals();
 
     updateChecklistText(this.hud, this.tasks, this.woodStockpile, this.waterStockpile);
     this.updatePromptAndHighlight();
     updateHudPanels(this.hud);
     updateBuildProgressRings(this.buildProgressGfx, this.tasks);
+  }
+
+  private redrawVignette() {
+    this.vignetteGfx.clear();
+    const w = this.scale.width;
+    const h = this.scale.height;
+
+    // Simple stepped vignette (no shaders): draw edge bands with increasing alpha.
+    const steps = 5;
+    for (let i = 0; i < steps; i++) {
+      const t = (i + 1) / steps;
+      const pad = Math.floor(t * 36);
+      const a = 0.02 + t * 0.055;
+      this.vignetteGfx.fillStyle(0x000000, a);
+      // top
+      this.vignetteGfx.fillRect(0, 0, w, pad);
+      // bottom
+      this.vignetteGfx.fillRect(0, h - pad, w, pad);
+      // left
+      this.vignetteGfx.fillRect(0, 0, pad, h);
+      // right
+      this.vignetteGfx.fillRect(w - pad, 0, pad, h);
+    }
+  }
+
+  private updateLighting(timeMs: number) {
+    // Slow day/night pulse (subtle).
+    const dayLenMs = 120_000;
+    const t01 = ((timeMs % dayLenMs) / dayLenMs) * Math.PI * 2;
+    const night01 = 0.5 + 0.5 * Math.sin(t01);
+
+    const alpha = 0.06 + night01 * 0.18;
+    this.worldTint.setFillStyle(0x0b1220, alpha);
+
+    // Campfire light (only when built + lit).
+    this.campfireLightGfx.clear();
+    if (this.tasks?.campfire?.complete && this.campfireLit) {
+      const x = this.tasks.campfire.sprite.x;
+      const y = this.tasks.campfire.sprite.y;
+      // Layered circles to approximate a radial glow.
+      const rings = [
+        { r: 150, a: 0.03, c: 0xf97316 },
+        { r: 110, a: 0.05, c: 0xfbbf24 },
+        { r: 70, a: 0.08, c: 0xf97316 },
+        { r: 40, a: 0.12, c: 0xfbbf24 },
+      ];
+      for (const rr of rings) {
+        this.campfireLightGfx.fillStyle(rr.c, rr.a);
+        this.campfireLightGfx.fillCircle(x, y, rr.r);
+      }
+    }
+  }
+
+  private updateWaterAnimation(delta: number) {
+    this.waterAnimMs += delta;
+    const frameMs = 320;
+    if (this.waterAnimMs < frameMs) return;
+    this.waterAnimMs %= frameMs;
+
+    this.waterFrame = (this.waterFrame + 1) % this.tileWorld.waterFrames.length;
+    const idx = this.tileWorld.waterFrames[this.waterFrame] ?? this.tileWorld.waterFrames[0]!;
+    for (const p of this.tileWorld.waterTiles) {
+      this.tileWorld.layer.putTileAt(idx, p.tx, p.ty);
+    }
+  }
+
+  private spawnDecorProps() {
+    const seed = this.tileWorld.seed;
+    const hash2Seeded = (x: number, y: number) => {
+      const s = Math.sin(x * 127.1 + y * 311.7 + seed * 0.001) * 43758.5453123;
+      return s - Math.floor(s);
+    };
+
+    const cx = this.tileWorld.clearingCenter.x;
+    const cy = this.tileWorld.clearingCenter.y;
+
+    for (let ty = 0; ty < this.tileWorld.rows; ty++) {
+      for (let tx = 0; tx < this.tileWorld.cols; tx++) {
+        if (!this.tileWorld.isWalkable(tx, ty)) continue;
+        const tile = this.tileWorld.layer.getTileAt(tx, ty);
+        if (!tile) continue;
+        if (this.tileWorld.isPathTileIndex(tile.index)) continue;
+        if (this.tileWorld.isWaterTileIndex(tile.index)) continue;
+
+        const p = this.tileWorld.tileToWorldCenter(tx, ty);
+
+        // Keep the camp clearing a bit cleaner.
+        if (Phaser.Math.Distance.Between(p.x, p.y, cx, cy) < 140) continue;
+
+        const r = hash2Seeded(tx + 7000, ty + 9000);
+        if (r > 0.075) continue;
+
+        const kind = hash2Seeded(tx + 123, ty + 456);
+        const key = kind < 0.6 ? 'prop_grass' : kind < 0.82 ? 'prop_pebble' : 'prop_flower';
+        const ox = (hash2Seeded(tx + 77, ty + 88) - 0.5) * 14;
+        const oy = (hash2Seeded(tx + 99, ty + 11) - 0.5) * 14;
+        const img = this.add.image(p.x + ox, p.y + oy, key);
+        img.setAlpha(0.92);
+        img.setDepth(p.y - 1);
+        this.decorProps.add(img);
+      }
+    }
+  }
+
+  private updateStockpileFeedback() {
+    const pop = (obj?: Phaser.GameObjects.GameObject & { setScale: (s: number) => any }) => {
+      if (!obj) return;
+      // Reset any prior scale tween effect.
+      (obj as any).setScale(1);
+      this.tweens.add({
+        targets: obj as any,
+        scale: { from: 1.0, to: 1.08 },
+        duration: 90,
+        yoyo: true,
+        ease: 'Sine.easeOut',
+      });
+    };
+
+    if (this.woodStockpile > this.lastWoodStockpile) pop(this.woodPileSprite as any);
+    if (this.waterStockpile > this.lastWaterStockpile) pop(this.tasks?.waterTank?.sprite as any);
+
+    this.lastWoodStockpile = this.woodStockpile;
+    this.lastWaterStockpile = this.waterStockpile;
   }
 
   private updateProgressVisuals() {

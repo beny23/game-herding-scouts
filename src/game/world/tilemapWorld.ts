@@ -20,6 +20,14 @@ export type TilemapWorld = {
   woodYieldPerTree: number;
   waterYieldPerFetch: number;
 
+  waterTiles: Array<{ tx: number; ty: number }>;
+  waterFrames: ReadonlyArray<number>;
+
+  isWaterTileIndex: (index: number) => boolean;
+  isTreeTileIndex: (index: number) => boolean;
+  isRockTileIndex: (index: number) => boolean;
+  isPathTileIndex: (index: number) => boolean;
+
   worldToTile: (x: number, y: number) => { tx: number; ty: number };
   tileToWorldCenter: (tx: number, ty: number) => { x: number; y: number };
   isWalkable: (tx: number, ty: number) => boolean;
@@ -46,21 +54,39 @@ export type TilemapWorld = {
 };
 
 const TILE_DEFAULT = {
-  FOREST_A: 0,
-  FOREST_B: 1,
-  CLEARING: 2,
-  PATH: 3,
-  WATER: 4,
-  TREE_A: 5,
-  TREE_B: 6,
-  TREE_C: 7,
-  ROCK_A: 8,
-  ROCK_B: 9,
-  ROCK_C: 10,
+  FOREST_A0: 0,
+  FOREST_A1: 1,
+  FOREST_B0: 2,
+  FOREST_B1: 3,
+  CLEARING0: 4,
+  CLEARING1: 5,
+  PATH_CENTER: 6,
+  PATH_EDGE: 7,
+  SHORE: 8,
+  WATER0: 9,
+  WATER1: 10,
+  WATER2: 11,
+  WATER3: 12,
+  TREE_A: 13,
+  TREE_B: 14,
+  TREE_C: 15,
+  ROCK_A: 16,
+  ROCK_B: 17,
+  ROCK_C: 18,
 } as const;
 
+const FOREST_A_TILES = [TILE_DEFAULT.FOREST_A0, TILE_DEFAULT.FOREST_A1] as const;
+const FOREST_B_TILES = [TILE_DEFAULT.FOREST_B0, TILE_DEFAULT.FOREST_B1] as const;
+const CLEARING_TILES = [TILE_DEFAULT.CLEARING0, TILE_DEFAULT.CLEARING1] as const;
+const PATH_TILES = [TILE_DEFAULT.PATH_CENTER, TILE_DEFAULT.PATH_EDGE] as const;
+
+const WATER_TILES = [TILE_DEFAULT.WATER0, TILE_DEFAULT.WATER1, TILE_DEFAULT.WATER2, TILE_DEFAULT.WATER3] as const;
 const TREE_TILES = [TILE_DEFAULT.TREE_A, TILE_DEFAULT.TREE_B, TILE_DEFAULT.TREE_C] as const;
 const ROCK_TILES = [TILE_DEFAULT.ROCK_A, TILE_DEFAULT.ROCK_B, TILE_DEFAULT.ROCK_C] as const;
+
+function isWaterTileIndex(index: number) {
+  return index === TILE_DEFAULT.WATER0 || index === TILE_DEFAULT.WATER1 || index === TILE_DEFAULT.WATER2 || index === TILE_DEFAULT.WATER3;
+}
 
 function isTreeTileIndex(index: number) {
   return index === TILE_DEFAULT.TREE_A || index === TILE_DEFAULT.TREE_B || index === TILE_DEFAULT.TREE_C;
@@ -68,6 +94,19 @@ function isTreeTileIndex(index: number) {
 
 function isRockTileIndex(index: number) {
   return index === TILE_DEFAULT.ROCK_A || index === TILE_DEFAULT.ROCK_B || index === TILE_DEFAULT.ROCK_C;
+}
+
+function isPathTileIndex(index: number) {
+  return index === TILE_DEFAULT.PATH_CENTER || index === TILE_DEFAULT.PATH_EDGE;
+}
+
+function isForestTileIndex(index: number) {
+  return (
+    index === TILE_DEFAULT.FOREST_A0 ||
+    index === TILE_DEFAULT.FOREST_A1 ||
+    index === TILE_DEFAULT.FOREST_B0 ||
+    index === TILE_DEFAULT.FOREST_B1
+  );
 }
 
 function pickVariantIndex(variants: ReadonlyArray<number>, r01: number) {
@@ -140,6 +179,20 @@ export function createTilemapWorld(params: {
   const tilesetKey = 'tileset32';
   const TILE = TILE_DEFAULT;
 
+  const waterTiles: Array<{ tx: number; ty: number }> = [];
+
+  const pickForestTile = (tx: number, ty: number) => {
+    const baseR = hash2Seeded(tx, ty, seed);
+    const variants = baseR < 0.5 ? FOREST_A_TILES : FOREST_B_TILES;
+    const vr = hash2Seeded(tx + 111, ty + 222, seed);
+    return pickVariantIndex(variants, vr);
+  };
+
+  const pickClearingTile = (tx: number, ty: number) => {
+    const vr = hash2Seeded(tx + 333, ty + 444, seed);
+    return pickVariantIndex(CLEARING_TILES, vr);
+  };
+
   const map = scene.make.tilemap({ width: cols, height: rows, tileWidth: tileSize, tileHeight: tileSize });
   const tileset = map.addTilesetImage(tilesetKey, tilesetKey, tileSize, tileSize);
   if (!tileset) {
@@ -185,10 +238,11 @@ export function createTilemapWorld(params: {
 
     for (let tx = 0; tx < cols; tx++) {
       const v = hash2Seeded(tx, ty, seed);
-      const baseGround = v < 0.5 ? TILE.FOREST_A : TILE.FOREST_B;
+      const baseGround = pickForestTile(tx, ty);
 
       if (Math.abs(tx - riverTx) <= 1) {
-        layer.putTileAt(TILE.WATER, tx, ty);
+        layer.putTileAt(TILE.WATER0, tx, ty);
+        waterTiles.push({ tx, ty });
         continue;
       }
 
@@ -207,14 +261,14 @@ export function createTilemapWorld(params: {
       }
 
       if (inClearing) {
-        layer.putTileAt(TILE.CLEARING, tx, ty);
+        layer.putTileAt(pickClearingTile(tx, ty), tx, ty);
         continue;
       }
 
       const pathBand = Math.abs(ty - clearingCenterTy) <= 1;
       const inPathX = tx > clearingCenterTx + clearingRadius && tx < riverTx - 2;
       if (pathBand && inPathX && v < 0.18) {
-        layer.putTileAt(TILE.PATH, tx, ty);
+        layer.putTileAt(TILE.PATH_CENTER, tx, ty);
         continue;
       }
 
@@ -239,9 +293,43 @@ export function createTilemapWorld(params: {
     }
   }
 
+  // Post-process transitions:
+  // - Shoreline: turn forest tiles adjacent to water into a wet bank tile.
+  // - Path edge: use a different path tile when adjacent to non-path.
+  for (let ty = 0; ty < rows; ty++) {
+    for (let tx = 0; tx < cols; tx++) {
+      const tile = layer.getTileAt(tx, ty);
+      if (!tile) continue;
+
+      if (isForestTileIndex(tile.index)) {
+        const neighbors = [
+          layer.getTileAt(tx + 1, ty),
+          layer.getTileAt(tx - 1, ty),
+          layer.getTileAt(tx, ty + 1),
+          layer.getTileAt(tx, ty - 1),
+        ];
+        if (neighbors.some((t) => t && isWaterTileIndex(t.index))) {
+          layer.putTileAt(TILE.SHORE, tx, ty);
+        }
+        continue;
+      }
+
+      if (isPathTileIndex(tile.index)) {
+        const neighbors = [
+          layer.getTileAt(tx + 1, ty),
+          layer.getTileAt(tx - 1, ty),
+          layer.getTileAt(tx, ty + 1),
+          layer.getTileAt(tx, ty - 1),
+        ];
+        const isEdge = neighbors.some((t) => t && !isPathTileIndex(t.index));
+        layer.putTileAt(isEdge ? TILE.PATH_EDGE : TILE.PATH_CENTER, tx, ty);
+      }
+    }
+  }
+
   // Collision.
-  layer.setCollision([...TREE_TILES, ...ROCK_TILES, TILE.WATER], true);
-  layer.setCollision([TILE.FOREST_A, TILE.FOREST_B, TILE.CLEARING, TILE.PATH], false);
+  layer.setCollision([...TREE_TILES, ...ROCK_TILES, ...WATER_TILES], true);
+  layer.setCollision([...FOREST_A_TILES, ...FOREST_B_TILES, ...CLEARING_TILES, ...PATH_TILES, TILE.SHORE], false);
 
   // Helpful spawn positions in the clearing.
   const clearingCenter = tileCenter(tileSize, clearingCenterTx, clearingCenterTy);
@@ -395,7 +483,7 @@ export function createTilemapWorld(params: {
         if (tx < 0 || ty < 0 || tx >= cols || ty >= rows) continue;
 
         const tile = layer.getTileAt(tx, ty);
-        if (!tile || tile.index !== TILE.WATER) continue;
+        if (!tile || !isWaterTileIndex(tile.index)) continue;
 
         // Water is collidable; choose a reachable stand point on an adjacent non-colliding tile.
         const neighbors = [
@@ -410,7 +498,7 @@ export function createTilemapWorld(params: {
           if (n.tx < 0 || n.ty < 0 || n.tx >= cols || n.ty >= rows) continue;
           const nt = layer.getTileAt(n.tx, n.ty);
           if (!nt) continue;
-          if (nt.index === TILE.WATER || isTreeTileIndex(nt.index) || isRockTileIndex(nt.index)) continue;
+          if (isWaterTileIndex(nt.index) || isTreeTileIndex(nt.index) || isRockTileIndex(nt.index)) continue;
 
           const c = tileCenter(tileSize, n.tx, n.ty);
           const d = Phaser.Math.Distance.Between(x, y, c.x, c.y);
@@ -450,7 +538,7 @@ export function createTilemapWorld(params: {
         if (tx < 0 || ty < 0 || tx >= cols || ty >= rows) continue;
 
         const tile = layer.getTileAt(tx, ty);
-        if (!tile || tile.index !== TILE.WATER) continue;
+        if (!tile || !isWaterTileIndex(tile.index)) continue;
 
         const neighbors = [
           { tx: tx + 1, ty },
@@ -465,7 +553,7 @@ export function createTilemapWorld(params: {
           if (n.tx < 0 || n.ty < 0 || n.tx >= cols || n.ty >= rows) continue;
           const nt = layer.getTileAt(n.tx, n.ty);
           if (!nt) continue;
-          if (nt.index === TILE.WATER || isTreeTileIndex(nt.index) || isRockTileIndex(nt.index)) continue;
+          if (isWaterTileIndex(nt.index) || isTreeTileIndex(nt.index) || isRockTileIndex(nt.index)) continue;
           const c = tileToWorldCenter(n.tx, n.ty);
           const d = Phaser.Math.Distance.Between(x, y, c.x, c.y);
           if (d < bestStandDist) {
@@ -500,9 +588,7 @@ export function createTilemapWorld(params: {
     if (!tile) return 0;
     if (!isTreeTileIndex(tile.index)) return 0;
 
-    const v = hash2Seeded(tx, ty, seed);
-    const replacement = v < 0.5 ? TILE.FOREST_A : TILE.FOREST_B;
-    layer.putTileAt(replacement, tx, ty);
+    layer.putTileAt(pickForestTile(tx, ty), tx, ty);
 
     return woodYieldPerTree;
   };
@@ -520,6 +606,14 @@ export function createTilemapWorld(params: {
     scoutSpawns,
     woodYieldPerTree,
     waterYieldPerFetch,
+
+    waterTiles,
+    waterFrames: WATER_TILES,
+
+    isWaterTileIndex,
+    isTreeTileIndex,
+    isRockTileIndex,
+    isPathTileIndex,
 
     worldToTile,
     tileToWorldCenter,

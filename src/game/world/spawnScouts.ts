@@ -5,7 +5,7 @@ import { Scout } from '../Scout';
 export function spawnScouts(params: {
   scene: Phaser.Scene & { physics: Phaser.Physics.Arcade.ArcadePhysics };
   positions?: Array<{ x: number; y: number }>;
-  textureKey?: string;
+  textureKey?: string | string[];
 }) {
   const { scene } = params;
   const textureKey = params.textureKey ?? 'scout';
@@ -18,8 +18,9 @@ export function spawnScouts(params: {
       { x: 240, y: 340 },
     ];
 
-  return positions.map((pos) => {
-    const sprite = scene.physics.add.sprite(pos.x, pos.y, textureKey);
+  return positions.map((pos, i) => {
+    const key = Array.isArray(textureKey) ? (textureKey[i % textureKey.length] ?? 'scout') : textureKey;
+    const sprite = scene.physics.add.sprite(pos.x, pos.y, key);
     sprite.setCollideWorldBounds(true);
     sprite.setDepth(5);
 
