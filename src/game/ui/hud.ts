@@ -49,7 +49,13 @@ export function createHud(scene: Phaser.Scene): Hud {
   return { checklistPanel, promptPanel, checklistText, promptText };
 }
 
-export function updateChecklistText(hud: Hud, tasks: Record<TaskId, BuildTask> | null, wood: number = 0, water: number = 0) {
+export function updateChecklistText(
+  hud: Hud,
+  tasks: Record<TaskId, BuildTask> | null,
+  wood: number = 0,
+  water: number = 0,
+  controlsHint?: string,
+) {
   if (!tasks) {
     hud.checklistText.setText('Loading...');
     return;
@@ -89,7 +95,7 @@ export function updateChecklistText(hud: Hud, tasks: Record<TaskId, BuildTask> |
       return `- ${t.label}: ${status}`;
     }),
     '',
-    allComplete ? 'All tasks complete — you win!' : 'Controls: WASD / Arrows to move, E to interact, Q to whistle',
+    allComplete ? 'All tasks complete — you win!' : controlsHint ?? 'Controls: WASD / Arrows to move, E to interact, Q to whistle',
   ];
 
   hud.checklistText.setText(lines.join('\n'));

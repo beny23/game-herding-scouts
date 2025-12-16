@@ -37,11 +37,16 @@ function applyIntegerCanvasScale() {
 
   const parentW = parent.clientWidth;
   const parentH = parent.clientHeight;
-  const zoom = Math.max(1, Math.floor(Math.min(parentW / BASE_WIDTH, parentH / BASE_HEIGHT)));
+  const rawZoom = Math.min(parentW / BASE_WIDTH, parentH / BASE_HEIGHT);
+  // Prefer crisp integer scaling when possible, but allow downscaling on small screens
+  // so the whole game stays visible on mobile.
+  const zoom = rawZoom >= 1 ? Math.floor(rawZoom) : rawZoom;
 
   game.canvas.style.width = `${BASE_WIDTH * zoom}px`;
   game.canvas.style.height = `${BASE_HEIGHT * zoom}px`;
 }
 
 window.addEventListener('resize', applyIntegerCanvasScale);
+window.visualViewport?.addEventListener('resize', applyIntegerCanvasScale);
+window.visualViewport?.addEventListener('scroll', applyIntegerCanvasScale);
 applyIntegerCanvasScale();

@@ -33,6 +33,11 @@ export class GameScene extends Phaser.Scene {
   private interactables!: Phaser.GameObjects.Group;
 
   private tileWorld!: TilemapWorld;
+  private worldScale = 1;
+
+  private touchMode = false;
+  private tapMoveTarget: Phaser.Math.Vector2 | null = null;
+  private lastTwoFingerTapMs = -1e9;
   private woodStockpile = 0;
   private waterStockpile = 0;
   private woodPile = { x: 0, y: 0 };
@@ -66,12 +71,15 @@ export class GameScene extends Phaser.Scene {
   create() {
     createProceduralTextures(this);
 
+    this.touchMode = !!this.sys.game.device.input.touch;
+
     const controls = createControls(this);
     this.cursors = controls.cursors;
     this.keys = controls.keys;
 
     this.tileWorld = createTilemapWorld({ scene: this });
     const worldScale = this.tileWorld.tileSize / 32;
+    this.worldScale = worldScale;
 
     const world = { width: this.tileWorld.width, height: this.tileWorld.height };
     this.cameras.main.setBounds(0, 0, world.width, world.height);
@@ -164,54 +172,34 @@ export class GameScene extends Phaser.Scene {
     this.highlightRing = createHighlightRing(this);
 
     this.hud = createHud(this);
-    updateChecklistText(this.hud, this.tasks, this.woodStockpile, this.waterStockpile);
+    updateChecklistText(
+      this.hud,
+      this.tasks,
+      this.woodStockpile,
+      this.waterStockpile,
+      this.touchMode
+        ? 'Controls: Tap to move/interact, two-finger tap to whistle'
+        : 'Controls: WASD / Arrows to move, E to interact, Q to whistle',
+    );
     updatePromptText(this.hud, '');
     updateHudPanels(this.hud);
 
     // Whistle: cancel current jobs and regroup all scouts.
     this.keys.Q.on('down', () => {
-      for (const scout of this.scouts) {
-        // Refund reserved wood deliveries if a scout was assigned to deliver.
-        if (scout.state.kind === 'CarryWoodToTask') {
-          this.woodStockpile += Math.max(0, scout.state.amount);
-        }
-        // If a scout had harvested wood but not deposited yet, just credit it back to the pile.
-        if (scout.state.kind === 'CarryWoodToPile') {
-          this.woodStockpile += Math.max(0, scout.state.amount);
-        }
-
-        scout.state = { kind: 'Regroup' };
-        scout.nav = null;
-      }
+      this.whistleRegroup();
     });
 
     this.keys.E.on('down', () => {
       const forced = this.getFacingTarget();
       if (!forced) return;
-      handleInteract({
-        leader: this.leader,
-        scouts: this.scouts,
-        interactables: this.interactables,
-        tileWorld: this.tileWorld,
-        tasks: this.tasks,
-        woodPile: this.woodPile,
-        reserveResource: (resource, want) => {
-          const amount = Math.max(0, want);
-          if (resource === 'wood') {
-            const taken = Math.min(this.woodStockpile, amount);
-            this.woodStockpile -= taken;
-            return taken;
-          }
-          const taken = Math.min(this.waterStockpile, amount);
-          this.waterStockpile -= taken;
-          return taken;
-        },
-        interactableRange: 72 * worldScale,
-        treeRange: 120 * worldScale,
-        waterRange: 150 * worldScale,
-        forced,
-      });
+      this.performInteract(forced);
     });
+
+    if (this.touchMode) {
+      // Enable multi-touch (for two-finger whistle).
+      this.input.addPointer(2);
+      this.input.on('pointerdown', this.onTouchPointerDown, this);
+    }
 
     // Lighting pass (drawn above the world, below HUD).
     this.worldTint = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x0b1220, 0.12).setOrigin(0, 0);
@@ -240,7 +228,14 @@ export class GameScene extends Phaser.Scene {
     this.updateWaterAnimation(delta);
     this.updateLighting(time);
 
-    updateLeaderMovement({ leader: this.leader, cursors: this.cursors, keys: this.keys, speed: 260 * (this.tileWorld.tileSize / 32) });
+    const speed = 260 * this.worldScale;
+    const usingKeyboard = this.hasKeyboardMovementInput();
+    if (this.touchMode && this.tapMoveTarget && !usingKeyboard) {
+      this.updateTapMove(speed);
+    } else {
+      if (this.touchMode && usingKeyboard) this.tapMoveTarget = null;
+      updateLeaderMovement({ leader: this.leader, cursors: this.cursors, keys: this.keys, speed });
+    }
 
     const body = this.leader.body as Phaser.Physics.Arcade.Body;
     if (body && (Math.abs(body.velocity.x) > 1 || Math.abs(body.velocity.y) > 1)) {
@@ -308,10 +303,181 @@ export class GameScene extends Phaser.Scene {
 
     this.updateProgressVisuals();
 
-    updateChecklistText(this.hud, this.tasks, this.woodStockpile, this.waterStockpile);
+    updateChecklistText(
+      this.hud,
+      this.tasks,
+      this.woodStockpile,
+      this.waterStockpile,
+      this.touchMode
+        ? 'Controls: Tap to move/interact, two-finger tap to whistle'
+        : 'Controls: WASD / Arrows to move, E to interact, Q to whistle',
+    );
     this.updatePromptAndHighlight();
     updateHudPanels(this.hud);
     updateBuildProgressRings(this.buildProgressGfx, this.tasks);
+  }
+
+  private performInteract(
+    forced:
+      | { kind: 'interactable'; sprite: Phaser.Physics.Arcade.Sprite }
+      | { kind: 'tree'; target: any }
+      | { kind: 'water'; target: any },
+  ) {
+    handleInteract({
+      leader: this.leader,
+      scouts: this.scouts,
+      interactables: this.interactables,
+      tileWorld: this.tileWorld,
+      tasks: this.tasks,
+      woodPile: this.woodPile,
+      reserveResource: (resource, want) => {
+        const amount = Math.max(0, want);
+        if (resource === 'wood') {
+          const taken = Math.min(this.woodStockpile, amount);
+          this.woodStockpile -= taken;
+          return taken;
+        }
+        const taken = Math.min(this.waterStockpile, amount);
+        this.waterStockpile -= taken;
+        return taken;
+      },
+      interactableRange: 72 * this.worldScale,
+      treeRange: 120 * this.worldScale,
+      waterRange: 150 * this.worldScale,
+      forced,
+    });
+  }
+
+  private whistleRegroup() {
+    this.tapMoveTarget = null;
+    this.leader.setVelocity(0, 0);
+
+    for (const scout of this.scouts) {
+      // Refund reserved wood deliveries if a scout was assigned to deliver.
+      if (scout.state.kind === 'CarryWoodToTask') {
+        this.woodStockpile += Math.max(0, scout.state.amount);
+      }
+      // If a scout had harvested wood but not deposited yet, just credit it back to the pile.
+      if (scout.state.kind === 'CarryWoodToPile') {
+        this.woodStockpile += Math.max(0, scout.state.amount);
+      }
+
+      scout.state = { kind: 'Regroup' };
+      scout.nav = null;
+    }
+  }
+
+  private hasKeyboardMovementInput() {
+    return (
+      !!this.cursors.left?.isDown ||
+      !!this.cursors.right?.isDown ||
+      !!this.cursors.up?.isDown ||
+      !!this.cursors.down?.isDown ||
+      this.keys.A.isDown ||
+      this.keys.D.isDown ||
+      this.keys.W.isDown ||
+      this.keys.S.isDown
+    );
+  }
+
+  private updateTapMove(speed: number) {
+    if (!this.tapMoveTarget) return;
+
+    const dx = this.tapMoveTarget.x - this.leader.x;
+    const dy = this.tapMoveTarget.y - this.leader.y;
+    const dist = Math.hypot(dx, dy);
+    const stopRadius = 6 * this.worldScale;
+
+    if (dist <= stopRadius) {
+      this.leader.setVelocity(0, 0);
+      this.tapMoveTarget = null;
+      return;
+    }
+
+    const inv = dist < 1e-6 ? 0 : 1 / dist;
+    const vx = dx * inv;
+    const vy = dy * inv;
+    this.leader.setVelocity(vx * speed, vy * speed);
+
+    this.leaderFacing.set(vx, vy);
+    this.leader.setRotation(Math.atan2(vy, vx));
+  }
+
+  private onTouchPointerDown(pointer: Phaser.Input.Pointer) {
+    if (!pointer.wasTouch) return;
+
+    const now = this.time.now;
+    const p1 = this.input.pointer1;
+    const p2 = this.input.pointer2;
+    const pointersDown = (p1 && p1.isDown && p1.wasTouch ? 1 : 0) + (p2 && p2.isDown && p2.wasTouch ? 1 : 0);
+    if (pointersDown >= 2) {
+      // Two-finger tap: whistle/regroup.
+      if (now - this.lastTwoFingerTapMs > 350) {
+        this.lastTwoFingerTapMs = now;
+        this.whistleRegroup();
+      }
+      return;
+    }
+
+    const pos = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
+    const worldX = pos.x;
+    const worldY = pos.y;
+
+    // Tap-to-interact: tap near a target while in range.
+    const forced = this.findTapForcedTarget(worldX, worldY);
+    if (forced) {
+      this.performInteract(forced);
+      return;
+    }
+
+    // Tap-to-move.
+    this.tapMoveTarget = new Phaser.Math.Vector2(worldX, worldY);
+  }
+
+  private findTapForcedTarget(
+    worldX: number,
+    worldY: number,
+  ):
+    | { kind: 'interactable'; sprite: Phaser.Physics.Arcade.Sprite }
+    | { kind: 'tree'; target: any }
+    | { kind: 'water'; target: any }
+    | null {
+    const interactableRange = 72 * this.worldScale;
+    const treeRange = 120 * this.worldScale;
+    const waterRange = 150 * this.worldScale;
+    const selectRadius = 28 * this.worldScale;
+
+    // Interactables (tasks, etc.)
+    const sprites = this.interactables.getChildren() as Phaser.Physics.Arcade.Sprite[];
+    let best: Phaser.Physics.Arcade.Sprite | null = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const s of sprites) {
+      const d = Phaser.Math.Distance.Between(worldX, worldY, s.x, s.y);
+      if (d <= selectRadius && d < bestDist) {
+        bestDist = d;
+        best = s;
+      }
+    }
+    if (best) {
+      const dLeader = Phaser.Math.Distance.Between(this.leader.x, this.leader.y, best.x, best.y);
+      if (dLeader <= interactableRange) return { kind: 'interactable', sprite: best };
+    }
+
+    // Trees
+    const tree = this.tileWorld.findNearestTreeTarget(worldX, worldY, selectRadius);
+    if (tree) {
+      const dLeader = Phaser.Math.Distance.Between(this.leader.x, this.leader.y, tree.x, tree.y);
+      if (dLeader <= treeRange) return { kind: 'tree', target: tree };
+    }
+
+    // Water
+    const water = this.tileWorld.findNearestWaterTarget(worldX, worldY, selectRadius);
+    if (water) {
+      const dLeader = Phaser.Math.Distance.Between(this.leader.x, this.leader.y, water.x, water.y);
+      if (dLeader <= waterRange) return { kind: 'water', target: water };
+    }
+
+    return null;
   }
 
   private redrawVignette() {
@@ -570,6 +736,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updatePromptAndHighlight() {
+    const action = this.touchMode ? 'Tap' : 'E';
     const facingTarget = this.getFacingTarget();
     if (facingTarget) {
       const idleCount = this.scouts.filter((s) => s.isIdle()).length;
@@ -577,7 +744,7 @@ export class GameScene extends Phaser.Scene {
         // Still show the ring, but make it clear no one is free.
         if (facingTarget.kind === 'interactable') setHighlightTarget(this.highlightRing, facingTarget.sprite);
         else setHighlightTarget(this.highlightRing, { x: facingTarget.target.sourceX, y: facingTarget.target.sourceY });
-        updatePromptText(this.hud, 'E: No idle scouts available');
+        updatePromptText(this.hud, `${action}: No idle scouts available`);
         return;
       }
 
@@ -586,12 +753,12 @@ export class GameScene extends Phaser.Scene {
         const label = String(facingTarget.sprite.data?.get('label') ?? 'Target');
         const task = this.tasks ? Object.values(this.tasks).find((t) => t.sprite === facingTarget.sprite) : null;
         if (task?.resource === 'wood') {
-          if (this.woodStockpile <= 0) updatePromptText(this.hud, `E: Need wood at the pile → ${label}`);
-          else updatePromptText(this.hud, `E: Deliver wood to ${label}`);
+          if (this.woodStockpile <= 0) updatePromptText(this.hud, `${action}: Need wood at the pile → ${label}`);
+          else updatePromptText(this.hud, `${action}: Deliver wood to ${label}`);
         } else if (task?.resource === 'water') {
-          updatePromptText(this.hud, `E: Send scout to fetch river water → ${label}`);
+          updatePromptText(this.hud, `${action}: Send scout to fetch river water → ${label}`);
         } else {
-          updatePromptText(this.hud, `E: Assign nearest idle scout → ${label}`);
+          updatePromptText(this.hud, `${action}: Assign nearest idle scout → ${label}`);
         }
         return;
       }
@@ -600,8 +767,8 @@ export class GameScene extends Phaser.Scene {
       updatePromptText(
         this.hud,
         facingTarget.kind === 'tree'
-          ? 'E: Assign nearest idle scout → Chop tree'
-          : 'E: Assign nearest idle scout → Fetch water',
+          ? `${action}: Assign nearest idle scout → Chop tree`
+          : `${action}: Assign nearest idle scout → Fetch water`,
       );
       return;
     }
