@@ -15,7 +15,7 @@ const config: Phaser.Types.Core.GameConfig = {
     roundPixels: true,
   },
   scale: {
-    // Keep a fixed internal resolution and scale the canvas in CSS using integer zoom.
+    // Keep a fixed internal resolution and scale the canvas in CSS.
     mode: Phaser.Scale.NONE,
     width: BASE_WIDTH,
     height: BASE_HEIGHT,
@@ -31,22 +31,22 @@ const config: Phaser.Types.Core.GameConfig = {
 
 const game = new Phaser.Game(config);
 
-function applyIntegerCanvasScale() {
+function applyCanvasScale() {
   const parent = document.getElementById('app');
   if (!parent || !game.canvas) return;
 
   const parentW = parent.clientWidth;
   const parentH = parent.clientHeight;
-  const rawZoom = Math.min(parentW / BASE_WIDTH, parentH / BASE_HEIGHT);
-  // Prefer crisp integer scaling when possible, but allow downscaling on small screens
-  // so the whole game stays visible on mobile.
-  const zoom = rawZoom >= 1 ? Math.floor(rawZoom) : rawZoom;
+
+  // Fill the entire available screen area while preserving aspect ratio.
+  // Note: on aspect ratios different from BASE_WIDTH:BASE_HEIGHT, this will crop.
+  const zoom = Math.max(parentW / BASE_WIDTH, parentH / BASE_HEIGHT);
 
   game.canvas.style.width = `${BASE_WIDTH * zoom}px`;
   game.canvas.style.height = `${BASE_HEIGHT * zoom}px`;
 }
 
-window.addEventListener('resize', applyIntegerCanvasScale);
-window.visualViewport?.addEventListener('resize', applyIntegerCanvasScale);
-window.visualViewport?.addEventListener('scroll', applyIntegerCanvasScale);
-applyIntegerCanvasScale();
+window.addEventListener('resize', applyCanvasScale);
+window.visualViewport?.addEventListener('resize', applyCanvasScale);
+window.visualViewport?.addEventListener('scroll', applyCanvasScale);
+applyCanvasScale();
